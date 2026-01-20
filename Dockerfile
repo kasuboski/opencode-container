@@ -64,6 +64,8 @@ RUN chown -R opencode:opencode /home/opencode && \
     mkdir -p /projects && \
     chown -R opencode:opencode /projects
 
+COPY --chown=opencode:opencode container-AGENTS.md /home/opencode/.config/opencode/AGENTS.md
+
 USER opencode
 
 EXPOSE 4096
