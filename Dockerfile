@@ -69,6 +69,8 @@ COPY --chown=opencode:opencode container-AGENTS.md /home/opencode/.config/openco
 
 USER opencode
 
+WORKDIR /projects
+
 EXPOSE 4096
 
-ENTRYPOINT ["sh", "-c", "opencode serve --hostname 0.0.0.0 --port 4096"]
+ENTRYPOINT ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
