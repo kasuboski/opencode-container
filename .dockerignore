@@ -1,0 +1,17 @@
+.git
+.gitignore
+*.md
+*AGENTS.md
+README*
+LICENSE
+Makefile
+.dockerignore
+Dockerfile
+*.log
+tmp/
+temp/
+*.swp
+*.swo
+.vscode
+.idea
+*.iml
