@@ -10,16 +10,17 @@ ENV BUN_VERSION=${BUN_VERSION}
 ENV UV_VERSION=${UV_VERSION}
 
 RUN apk add --no-cache \
-    git \
+    bash \
+    ca-certificates \
+    curl \
     fd \
-    ripgrep \
+    git \
     libgcc \
     libstdc++ \
-    curl \
-    unzip \
-    xz \
+    ripgrep \
     tar \
-    ca-certificates
+    unzip \
+    xz
 
 RUN curl -fsSL https://bun.sh/install | bash
 
