@@ -14,6 +14,7 @@ RUN apk add --no-cache \
     ca-certificates \
     curl \
     fd \
+    gcompat \
     git \
     libgcc \
     libstdc++ \
