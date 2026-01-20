@@ -1,7 +1,6 @@
 .git
 .gitignore
 *.md
-*AGENTS.md
 README*
 LICENSE
 Makefile
