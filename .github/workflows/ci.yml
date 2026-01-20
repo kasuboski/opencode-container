@@ -22,9 +22,11 @@ jobs:
       - name: Read versions from versions.yml
         id: versions
         run: |
-          echo "opencode=$(yq e '.opencode' versions.yml)" >> $GITHUB_OUTPUT
-          echo "bun=$(yq e '.bun' versions.yml)" >> $GITHUB_OUTPUT
-          echo "uv=$(yq e '.uv' versions.yml)" >> $GITHUB_OUTPUT
+          {
+            echo "opencode=$(yq e '.opencode' versions.yml)"
+            echo "bun=$(yq e '.bun' versions.yml)"
+            echo "uv=$(yq e '.uv' versions.yml)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
