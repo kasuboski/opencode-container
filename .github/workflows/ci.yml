@@ -4,9 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'versions.yml'
-      - 'Dockerfile'
-      - '.github/workflows/ci.yml'
+      - "versions.yml"
+      - "Dockerfile"
+      - "container-AGENTS.md"
+      - ".dockerignore"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: [main]
 
