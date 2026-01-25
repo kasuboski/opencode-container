@@ -5,7 +5,8 @@ This file provides guidelines for agentic coding agents operating in this reposi
 ## Project Overview
 
 This repository builds a Docker container for OpenCode deployment on Kubernetes. It contains:
-- Dockerfile (multi-stage Alpine Linux build)
+- apko configuration for building Wolfi OS-based images
+- melange configuration for building the mise package
 - Makefile (build automation)
 - versions.yml (version definitions)
 - GitHub Actions CI/CD workflow
@@ -13,15 +14,14 @@ This repository builds a Docker container for OpenCode deployment on Kubernetes.
 ## Build Commands
 
 ```bash
-# Multi-arch build and push to registry
-make build REGISTRY=ghcr.io/user TAG=latest
+# Build mise package with melange
+melange build --arch x86_64,aarch64 melange/mise/package.yaml --repository-dir packages/
 
-# Single-arch builds for local testing
-make build-amd64 TAG=test
-make build-arm64 TAG=test
+# Build image with apko
+apko build apko/opencode.yaml ghcr.io/user/opencode:latest opencode.tar
 
-# Push existing image to registry
-make push
+# Publish image
+apko publish apko/opencode.yaml ghcr.io/user/opencode:latest
 
 # Show available targets and current versions
 make help
@@ -30,29 +30,35 @@ make help
 Version variables are read from `versions.yml` via yq:
 ```bash
 OPENCODE_VERSION=$(shell yq e '.opencode' versions.yml)
-BUN_VERSION=$(shell yq e '.bun' versions.yml)
-UV_VERSION=$(shell yq e '.uv' versions.yml)
+MISE_VERSION=$(shell yq e '.mise' versions.yml)
 ```
 
 ## CI/CD
 
 GitHub Actions workflow: `.github/workflows/ci.yml`
-- Triggers on push to main (when versions.yml, Dockerfile, or workflow changes)
+- Triggers on push to main (when versions.yml, apko configs, or workflow changes)
 - Triggers on all PRs to main (builds but does not push)
 - Builds for linux/amd64 and linux/arm64 platforms
 - Uses GitHub Actions cache for faster builds
+- Uses apko-action and melange-action
 
 ## Code Style Guidelines
 
-### Dockerfile
-- Use multi-stage builds for smaller final image
-- Pin Alpine version (e.g., `ARG ALPINE_VERSION=3.23`)
-- Use `--no-cache` with apk to reduce image size
-- Combine related RUN commands to reduce layers
-- Use `ARG` for version variables, `ENV` for runtime variables
-- Quote variables in curl URLs to prevent injection
-- Use `set -e` for error handling in RUN commands
-- Alphabetize packages in apk add for readability
+### apko YAML
+- Use 2-space indentation
+- Alphabetize packages in contents.packages
+- Use explicit repository URLs
+- Define accounts and paths declaratively
+- Set entrypoint as command array
+- Pin base image version in `contents.repositories`
+
+### melange YAML
+- Use 2-space indentation
+- Pin package versions explicitly
+- Use `uses:` pipeline steps where available
+- Set expected-sha256/sha512 for fetch steps
+- Use `strip` use to reduce binary size
+- Use `test` section for package validation
 
 ### Makefile
 - Use `:=` for variables read from shell commands
@@ -79,19 +85,20 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 All component versions are defined in `versions.yml` as the single source of truth:
 ```yaml
 opencode: 1.1.26
-bun: 1.1.35
-uv: 0.9.21
+mise: 2024.11.37
+# Wolfi packages use latest from repo by default
+# To pin specific versions, edit apko/opencode.yaml directly
 ```
 
 To update versions:
-1. Edit `versions.yml`
-2. Commit and push to main (CI will auto-build)
-3. PRs work the same but do not push images
+- opencode: Edit `versions.yml`, rebuild image
+- mise: Edit `melange/mise/package.yaml`, rebuild with melange
+- Wolfi packages (bun, uv): Edit apko.yaml packages list or pin versions
 
 ## Error Handling
 
-- Dockerfile: Use `set -e` at the start of RUN commands
-- Makefile: Commands fail on non-zero exit by default
+- melange: Pipeline steps fail on non-zero exit by default
+- apko: Build fails if image references or packages are invalid
 - Shell: Use `&&` to chain commands that should fail together
 - Always verify download URLs before use
 
@@ -105,74 +112,140 @@ To update versions:
 ## Important Notes
 
 - This project does not include application code (no tests, no linting)
-- The container is built from upstream releases (opencode, bun, uv)
+- The container is built from upstream releases (opencode, mise, Wolfi packages)
 - Versions are NOT configurable at runtime; only at build time
 - container-AGENTS.md documents the container environment for LLMs running inside
 - README.md contains Kubernetes deployment examples
+
+## Seed & Sync Pattern
+
+The container uses a Seed & Sync pattern for persistent tool configuration:
+
+1. **Seed build**: During image build, `/opt/mise-seed` directory is created (currently empty, mise available via Wolfi packages)
+2. **Init container**: Copies seed tools to `/home/opencode/.local/share/mise` with `rsync --ignore-existing`
+3. **Runtime**: mise reads from user data directory, respecting existing tools and plugins
+
+This allows:
+- Users to install additional tools via mise (persisted in volume)
+- Upgrades to container don't overwrite user-installed tools
+
+### First Run Setup
+On first container run (or when starting a new environment), install opencode using mise:
+```bash
+# In the container or via exec
+mise use opencode@$(OPENCODE_VERSION)
+```
+
+This will install opencode to your persistent mise data directory and make it available immediately. Future container restarts will preserve this installation via the seed sync.
+
+Example initContainer:
+```yaml
+initContainers:
+- name: seed-mise
+  image: ghcr.io/user/opencode:latest
+  command: ["/bin/sh", "-c"]
+  args: ["rsync -a --ignore-existing /opt/mise-seed/ /home/opencode/.local/share/mise/"]
+  volumeMounts:
+  - name: mise-data
+    mountPath: /home/opencode/.local/share/mise
+```
 
 ## File Structure
 
 ```
 .
-├── .dockerignore           # Exclusions for Docker build context
 ├── .github/
 │   └── workflows/
-│       └── ci.yml          # GitHub Actions CI/CD pipeline
-├── container-AGENTS.md     # Container environment docs for AI assistants
-├── Dockerfile              # Multi-stage Alpine Linux build
-├── Makefile                # Build automation targets
-├── README.md               # User-facing documentation
-└── versions.yml            # Single source of truth for versions
+│       └── ci.yml
+├── apko/
+│   └── opencode.yaml
+├── melange/
+│   ├── .melange.yaml
+│   └── mise/
+│       └── package.yaml
+├── packages/
+│   └── x86_64/
+│       └── mise-*.apk
+├── AGENTS.md
+├── container-AGENTS.md
+├── Makefile
+├── README.md
+└── versions.yml
 ```
 
 ## Working with Versions
 
 When updating component versions:
 
-1. **Edit versions.yml** with new version numbers:
+### opencode
+
+1. **Edit versions.yml** with new version number:
    ```yaml
    opencode: 1.1.27
-   bun: 1.1.36
-   uv: 0.9.22
    ```
 
-2. **Verify download URLs** exist before committing:
+2. **Verify release URL** exists before committing:
    ```bash
    curl -sI "https://github.com/anomalyco/opencode/releases/download/v1.1.27/opencode-linux-x64-musl.tar.gz" | head -5
    ```
 
 3. **Commit with descriptive message**:
    ```
-   Bump opencode to 1.1.27, bun to 1.1.36, uv to 0.9.22
+   Bump opencode to 1.1.27
    ```
 
 4. **CI automatically builds** and pushes on main branch
 
-## Docker Build Best Practices
+### mise
 
-- Always use specific version tags, not `:latest` in production
-- Clean up temporary files in the same RUN layer they were created
-- Use COPY instead of ADD unless fetching from URL
-- Minimize layers by combining related commands
-- Pin base image versions for reproducibility
+1. **Edit melange/mise/package.yaml** with new version:
+   ```yaml
+   package:
+     version: 2024.11.38
+   ```
+
+2. **Update fetch URLs** and SHA256 checksums in the file
+
+3. **Rebuild package**:
+   ```bash
+   melange build --arch x86_64,aarch64 melange/mise/package.yaml --repository-dir packages/
+   ```
+
+4. **Commit and push** to trigger image rebuild
+
+### Wolfi packages (bun, uv, git, fd, ripgrep)
+
+To pin specific Wolfi package versions, edit `apko/opencode.yaml`:
+```yaml
+contents:
+  packages:
+    - bun@1.1.36-r0
+    - uv@0.9.22-r0
+```
+
+By default, packages use the latest version from the Wolfi repository.
 
 ## Common Tasks
 
-### Adding a new dependency to the container
+### Building the mise package
 
-1. Add package to Dockerfile's apk add command (alphabetically sorted)
-2. Test with `make build-amd64 TAG=test`
-3. Update versions.yml if version changes
-4. Commit and push
+```bash
+melange build --arch x86_64,aarch64 melange/mise/package.yaml --repository-dir packages/
+```
 
-### Updating a component version
+### Building the image
 
-1. Update version in versions.yml
-2. Verify release URL exists
+```bash
+apko build apko/opencode.yaml ghcr.io/user/opencode:latest opencode.tar
+```
+
+### Adding a new Wolfi package
+
+1. Add package to `apko/opencode.yaml` contents.packages (alphabetically sorted)
+2. Test with `apko build`
 3. Commit and push
-4. CI will build and push automatically
 
-### Modifying GitHub Actions workflow
+### Updating GitHub Actions workflow
 
 1. Pin all action versions to specific tags (not main/latest)
 2. Test changes via PR (workflows run on PRs)
@@ -180,14 +253,22 @@ When updating component versions:
 
 ## Troubleshooting
 
-### Build failures
-- Check Docker daemon is running
-- Verify network access for downloading assets
-- Ensure buildx is supported: `docker buildx version`
+### apko build failures
+- Verify apko is installed: `which apko`
+- Check apko.yaml syntax with `apko validate apko/opencode.yaml`
+- Ensure repository URLs are accessible
+- Verify package names exist in Wolfi repository
 
-### Multi-arch build issues
-- Ensure buildx builder is created: `docker buildx create --use`
-- Use `--platform linux/amd64,linux/arm64` explicitly
+### melange build issues
+- Verify melange is installed: `which melange`
+- Check package.yaml syntax with `melange lint melange/mise/package.yaml`
+- Verify fetch URLs and SHA256 checksums are correct
+- Check .melange.yaml configuration exists
+
+### Package repository access
+- Verify network access to https://packages.wolfi.dev/os
+- Check that architecture (x86_64, aarch64) is valid
+- Ensure packages/ directory exists for melange output
 
 ### Version parsing errors
 - Verify yq is installed: `which yq`

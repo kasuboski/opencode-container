@@ -3,9 +3,7 @@
 README*
 LICENSE
 Makefile
-.dockerignore
-Dockerfile
-Dockerfile.old
+.apkoignore
 *.log
 tmp/
 temp/

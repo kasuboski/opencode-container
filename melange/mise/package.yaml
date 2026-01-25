@@ -1,0 +1,74 @@
+package:
+  name: mise
+  version: 2026.1.6
+  epoch: 0
+  description: Polyglot runtime and dev tool version manager
+  copyright:
+    - license: MIT
+  dependencies:
+    runtime:
+      - ca-certificates-bundle
+      - git
+
+environment:
+  contents:
+    packages:
+      - build-base
+      - busybox
+      - ca-certificates-bundle
+      - cargo-auditable
+      - rust
+      - openssl-dev
+      - lua-5.1-dev
+      - bash
+      - direnv
+
+pipeline:
+  - uses: fetch
+    with:
+      uri: https://github.com/jdx/mise/archive/refs/tags/v${{package.version}}.tar.gz
+      expected-sha512: 5a5562e6fb7715a90ccac98affd89ab50f932294d96486d43537f54f505375a2ba32d61501a36d4bf964a970cef206ed3ba9fc25c3b8d7edd85755963e36cff7
+
+  - runs: |
+      cargo fetch --target="${{host.triplet.gnu}}" --locked
+
+      cargo auditable build --release --frozen --bin mise --no-default-features
+
+  - runs: |
+      cargo test --frozen --no-default-features
+
+  - runs: |
+      install -Dm755 target/release/mise -t "${{targets.destdir}}/usr/bin/"
+
+  - uses: strip
+
+test:
+  environment:
+    contents:
+      packages:
+        - bash
+  pipeline:
+    - runs: |
+        mise --version
+        mise --help
+
+        if ! mise --version | grep -q "${{package.version}}"; then
+          echo "Version mismatch or failure"
+          exit 1
+        fi
+
+subpackages:
+  - name: mise-doc
+    description: "mise documentation"
+    pipeline:
+      - uses: split/manpages
+      - runs: |
+          mkdir -p "${{targets.subpkgdir}}/usr/share/doc"
+          mv "${{targets.destdir}}/usr/share/doc/mise" "${{targets.subpkgdir}}/usr/share/doc/"
+
+update:
+  enabled: true
+  github:
+    identifier: jdx/mise
+    strip-prefix: v
+    tag-filter: v

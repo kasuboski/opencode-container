@@ -1,11 +1,12 @@
 # OpenCode Container
 
-A containerized OpenCode deployment for Kubernetes with pre-installed tools (bun, uv, git, fd, ripgrep).
+A containerized OpenCode deployment for Kubernetes with pre-installed tools (bun, uv, git, fd, ripgrep) and mise tool manager.
 
 ## About
 
 This repository contains:
-- **Dockerfile**: Multi-stage Alpine Linux build for opencode, bun, uv, and utilities
+- **apko configs**: Wolfi OS base image with opencode, bun, uv, and utilities
+- **melange configs**: Custom mise package build from source
 - **Makefile**: Build automation that reads versions from `versions.yml`
 - **GitHub Actions**: CI/CD pipeline for multi-architecture builds
 - **container-AGENTS.md**: Detailed container environment documentation for AI assistants
@@ -15,18 +16,20 @@ This repository contains:
 ### Prerequisites
 
 - Docker with buildx support
+- apko (for building OCI images)
+- melange (for building packages)
 - yq (for reading versions.yml)
 - Access to GitHub Container Registry (for published images)
 
 ### Build the Image
 
 ```bash
-# Build multi-arch image and push to registry
-make build REGISTRY=ghcr.io/youruser TAG=latest
+# Build and publish multi-arch image to registry
+make publish REGISTRY=ghcr.io/youruser TAG=latest
 
-# Build single arch for local testing
-make build-amd64 TAG=test
-make build-arm64 TAG=test
+# Build local single arch for testing
+make build-local ARCH=amd64 TAG=test
+make build-local ARCH=arm64 TAG=test
 
 # View available targets and current versions
 make help
@@ -52,14 +55,16 @@ Versions are defined in `versions.yml`:
 
 ```yaml
 opencode: 1.1.26
-bun: 1.1.35
-uv: 0.9.21
+mise: 2024.11.37
+# Wolfi packages (bun, uv, git, fd, ripgrep) use latest from repo by default
+# To pin specific versions, edit apko/opencode.yaml directly
 ```
 
 To update versions:
-1. Edit `versions.yml`
-2. Commit and push to main
-3. GitHub Actions automatically builds and pushes the new image
+1. Edit `versions.yml` for opencode or mise
+2. For Wolfi packages (bun, uv, git, fd, ripgrep), edit `apko/opencode.yaml`
+3. Commit and push to main
+4. GitHub Actions automatically builds and pushes the new image
 
 ## Configuration
 
@@ -86,11 +91,42 @@ Place OpenCode configuration in `$HOME/.opencode/`:
 |------|--------|-------------|
 | `/projects` | Read-Write | Project files and git repositories |
 
+## Seed & Sync Pattern
+
+This container uses the "Seed & Sync" pattern to manage tool persistence in Kubernetes.
+
+### The Problem: Mount Masking
+When you mount a Kubernetes Persistent Volume (PV) to a path (e.g., `/home/opencode/.local/share/mise`), it acts like a "new sheet of paper" placed over the existing folder. This makes tools installed during the image build invisible.
+
+### The Solution: Seed & Sync
+Instead of installing tools directly to the final destination, they're installed to a "Seed" directory (`/opt/mise-seed`) during the image build. At runtime, an init container syncs these tools to the PV using `rsync --ignore-existing`, which preserves user-installed tool versions.
+
+### Implementation
+- **Build time**: Tools installed to `/opt/mise-seed` (currently empty, mise available via Wolfi packages)
+- **Runtime**: Uses `MISE_DATA_DIR=/home/opencode/.local/share/mise`
+- **Init Container**: Syncs `/opt/mise-seed/` → `/home/opencode/.local/share/mise/` with `--ignore-existing`
+
+### First Run Setup
+On first container run (or when starting a new environment), install opencode using mise:
+```bash
+# In the container or via exec
+mise use opencode@1.1.26
+```
+
+This will install opencode to your persistent mise data directory and make it available immediately. Future container restarts will preserve this installation via the seed sync.
+
+### Benefits
+- Pre-installed tools (opencode) start instantly
+- User-installed tools persist across pod restarts
+- User tool upgrades aren't overwritten on restart
+- Files owned by the container user (UID 1000)
+
 ## Available Tools
 
 | Tool | Purpose |
 |------|---------|
 | `opencode` | AI coding agent |
+| `mise` | Tool version manager (installed via melange) |
 | `bun` | JavaScript runtime and package manager |
 | `uv` | Fast Python package manager |
 | `git` | Version control |
@@ -99,18 +135,18 @@ Place OpenCode configuration in `$HOME/.opencode/`:
 
 ## Image Details
 
-- **Base**: Alpine Linux 3.23
+- **Base**: Wolfi OS (apko-built)
 - **Architecture**: amd64, arm64
 - **User**: Non-root (opencode, UID 1000)
-- **Filesystem**: Read-only root, writable `/projects`
+- **Filesystem**: Read-only root, writable `/projects`, `/home/opencode/.local/share/mise`
 - **Port**: 4096 (configurable via Service/Ingress)
 
 ## CI/CD
 
 GitHub Actions workflow (`.github/workflows/ci.yml`):
-- Builds on push to main (when `versions.yml`, `Dockerfile`, or workflow changes)
+- Builds on push to main (when `versions.yml`, `apko/`, `melange/`, or workflow changes)
 - Builds on all PRs to main (no push)
-- Uses GitHub Actions cache for faster builds
+- Uses GitHub Actions cache for faster apko/melange builds
 - Pushes to ghcr.io on main branch only
 
 ## Security
@@ -163,6 +199,13 @@ spec:
         runAsUser: 1000
         runAsNonRoot: true
         readOnlyRootFilesystem: true
+      initContainers:
+      - name: sync-mise-seed
+        image: ghcr.io/user/opencode:latest
+        command: ["/bin/sh", "-c", "rsync -av --ignore-existing /opt/mise-seed/ /home/opencode/.local/share/mise/"]
+        volumeMounts:
+        - name: mise-data
+          mountPath: /home/opencode/.local/share/mise
       containers:
       - name: opencode
         image: ghcr.io/user/opencode:latest
@@ -174,9 +217,13 @@ spec:
             secretKeyRef:
               name: opencode-secret
               key: password
+        - name: MISE_DATA_DIR
+          value: /home/opencode/.local/share/mise
         volumeMounts:
         - name: projects-storage
           mountPath: /projects
+        - name: mise-data
+          mountPath: /home/opencode/.local/share/mise
         resources:
           requests:
             memory: "512Mi"
@@ -188,6 +235,9 @@ spec:
       - name: projects-storage
         persistentVolumeClaim:
           claimName: opencode-projects-pvc
+      - name: mise-data
+        persistentVolumeClaim:
+          claimName: opencode-mise-pvc
 ```
 
 ### Service

@@ -1,3 +1,6 @@
-opencode: 1.1.26
-bun: 1.1.35
-uv: 0.9.21
+opencode: 1.1.35
+mise: 2026.1.6
+
+# Wolfi packages (bun, uv, git, fd, ripgrep) use latest from repo by default
+# To pin specific versions, edit apko/opencode.yaml directly and add package-version syntax
+# Example: bun-1.3.6, uv-0.9.21

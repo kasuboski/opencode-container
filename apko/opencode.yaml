@@ -1,0 +1,35 @@
+contents:
+  keyring:
+    - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+  repositories:
+    - https://packages.wolfi.dev/os
+  packages:
+    - wolfi-base
+    - busybox
+    - bash
+    - git
+    - fd
+    - ripgrep
+    - bun
+    - uv
+
+accounts:
+  run-as: 1000
+  users:
+    - username: opencode
+      uid: 1000
+      gid: 1000
+
+paths:
+  - path: /projects
+    type: directory
+    permissions: 0755
+    uid: 1000
+    gid: 1000
+
+entrypoint:
+  command: /bin/sh
+
+archs:
+  - x86_64
+  - aarch64
