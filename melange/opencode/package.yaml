@@ -23,19 +23,23 @@ package:
   pipeline:
     - name: Configure mise data directory
       runs: |
-        mkdir -p /home/build/.config/mise
-        mkdir -p /home/build/.local/share/mise/installs
-        
+        export MISE_CONFIG_DIR=/home/build/.config/mise
+        export MISE_DATA_DIR=/home/build/.local/share/mise
+        mkdir -p "$MISE_CONFIG_DIR"
+        mkdir -p "$MISE_DATA_DIR/installs"
+
     - name: Install opencode with mise
       runs: |
+        export MISE_CONFIG_DIR=/home/build/.config/mise
+        export MISE_DATA_DIR=/home/build/.local/share/mise
         mise install opencode@${{package.version}}
 
     - name: Capture mise installation to package
       runs: |
-        # mise installs to ~/.local/share/mise/installs/<name>/<version>/
-        MISE_HOME=/home/build/.local/share/mise
+        # Use documented MISE_DATA_DIR variable
+        export MISE_DATA_DIR=/home/build/.local/share/mise
         OPENCODE_VERSION="${{package.version}}"
-        OPENCODE_DIR="$MISE_HOME/installs/opencode/$OPENCODE_VERSION"
+        OPENCODE_DIR="$MISE_DATA_DIR/installs/opencode/$OPENCODE_VERSION"
         SEED_DIR="${{targets.destdir}}/opt/mise-seed"
         
         # Create seed directory structure

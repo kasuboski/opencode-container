@@ -22,9 +22,13 @@ LOCAL_REPO := $(PWD)/packages
 # Docker image for package building
 MELANGE_DOCKER_IMAGE := ghcr.io/wolfi-dev/sdk:latest
 
-# Download container-structure-test for current platform
-CONTAINER_STRUCTURE_TEST_URL := https://github.com/GoogleContainerTools/container-structure-test/releases/latest/download/container-structure-test-darwin-arm64
-CONTAINER_STRUCTURE_TEST := container-structure-test-darwin-arm64
+# Detect host OS/arch for container-structure-test
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+OS := $(if $(filter Darwin,$(UNAME_S)),darwin,$(if $(filter Linux,$(UNAME_S)),linux,$(error Unsupported OS: $(UNAME_S))))
+ARCH := $(if $(filter x86_64,$(UNAME_M)),amd64,$(if $(filter arm64,$(UNAME_M)),arm64,$(if $(filter aarch64,$(UNAME_M)),arm64,$(error Unsupported arch: $(UNAME_M)))))
+CONTAINER_STRUCTURE_TEST := container-structure-test-$(OS)-$(ARCH)
+CONTAINER_STRUCTURE_TEST_URL := https://github.com/GoogleContainerTools/container-structure-test/releases/latest/download/$(CONTAINER_STRUCTURE_TEST)
 
 .PHONY: install-test-tools
 install-test-tools:
@@ -93,7 +97,7 @@ build-packages-docker: build-mise-docker build-opencode-docker
 .PHONY: update-opencode
 update-opencode:
 	@echo "Updating opencode version in melange/opencode/package.yaml..."
-	yq e -i '.package.version = "$(OPENCODE_VERSION)" melange/opencode/package.yaml
+	yq e -i '.package.version = "$(OPENCODE_VERSION)"' melange/opencode/package.yaml
 
 .PHONY: build-local
 build-local:

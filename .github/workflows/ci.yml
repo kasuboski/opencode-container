@@ -24,21 +24,24 @@ jobs:
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
 
-      - name: Download apko and melange
+      - name: Install melange
+        uses: chainguard-dev/actions/setup-melange@v1.5.12
+        with:
+          version: 'v0.39.0'
+
+      - name: Install apko
         run: |
-          wget https://github.com/chainguard-dev/apko/releases/download/v0.17.1/apko-amd64 -O apko
-          chmod +x apko
-          wget https://github.com/chainguard-dev/melange/releases/download/v0.39.0/melange-amd64 -O melange
-          chmod +x melange
+          wget https://github.com/chainguard-dev/apko/releases/download/v0.17.1/apko-amd64 -O apko-cli
+          chmod +x apko-cli
 
       - name: Build packages
         run: make build-packages index-packages
 
       - name: Build apko image
-        run: ./apko build apko/opencode.yaml ghcr.io/${{ github.repository }}:latest --ignore-signatures
+        run: ./apko-cli build apko/opencode.yaml ghcr.io/${{ github.repository }}:latest opencode.tar --ignore-signatures
 
       - name: Load image to Docker
-        run: docker load < ghcr.io/${{ github.repository }}:latest.tar
+        run: docker load < opencode.tar
 
       - name: Login to GitHub Container Registry
         if: github.ref == 'refs/heads/main'

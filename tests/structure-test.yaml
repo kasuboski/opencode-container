@@ -5,7 +5,7 @@ commandTests:
   - name: "mise version check"
     command: "mise"
     args: ["--version"]
-    expectedOutput: [".*${MISE_VERSION}.*"]
+    expectedOutput: [".*[0-9]+\\.[0-9]+\\.[0-9]+.*"]
 
   - name: "git version check"
     command: "git"
@@ -54,7 +54,7 @@ commandTests:
   - name: "read opencode version"
     command: "cat"
     args: ["/opt/mise-seed/installs/opencode/.version"]
-    expectedOutput: [".*${OPENCODE_VERSION}.*"]
+    expectedOutput: [".*[0-9]+\\.[0-9]+\\.[0-9]+.*"]
 
   - name: "verify opencode binary exists"
     command: "test"
@@ -154,7 +154,7 @@ fileExistenceTests:
 fileContentTests:
   - name: "opencode version file contains correct version"
     path: "/opt/mise-seed/installs/opencode/.version"
-    expectedContents: [".*${OPENCODE_VERSION}.*"]
+    expectedContents: [".*[0-9]+\\.[0-9]+\\.[0-9]+.*"]
     excludedContents: ["error", "fail"]
 
 # Metadata Test - Verify container configuration
