@@ -6,12 +6,14 @@ on:
     paths:
       - "versions.yml"
       - "apko/**"
+      - "melange/**"
       - ".github/workflows/ci.yml"
+      - "Makefile"
   pull_request:
     branches: [main]
 
 jobs:
-  build-image:
+  build-and-publish:
     permissions:
       contents: read
       id-token: write
@@ -19,14 +21,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and publish image
-        uses: chainguard-images/actions/apko-publish@v0.1.4
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Download apko and melange
+        run: |
+          wget https://github.com/chainguard-dev/apko/releases/download/v0.17.1/apko-amd64 -O apko
+          chmod +x apko
+          wget https://github.com/chainguard-dev/melange/releases/download/v0.39.0/melange-amd64 -O melange
+          chmod +x melange
+
+      - name: Build packages
+        run: make build-packages index-packages
+
+      - name: Build apko image
+        run: ./apko build apko/opencode.yaml ghcr.io/${{ github.repository }}:latest --ignore-signatures
+
+      - name: Load image to Docker
+        run: docker load < ghcr.io/${{ github.repository }}:latest.tar
+
+      - name: Login to GitHub Container Registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
         with:
-          config: apko/opencode.yaml
-          imageRefs: ghcr.io/${{ github.repository }}
-          tags: |
-            type=sha,format=long
-            type=ref,event=branch
-            type=raw,value=latest,enable={{ is_default_branch }}
-          push: ${{ github.ref == 'refs/heads/main' }}
-          cache: true
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image
+        if: github.ref == 'refs/heads/main'
+        run: docker push ghcr.io/${{ github.repository }}:latest

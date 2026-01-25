@@ -1,0 +1,171 @@
+schemaVersion: "2.0.0"
+
+# Command Tests - Verify tools are installed and functional
+commandTests:
+  - name: "mise version check"
+    command: "mise"
+    args: ["--version"]
+    expectedOutput: [".*${MISE_VERSION}.*"]
+
+  - name: "git version check"
+    command: "git"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "bun version check"
+    command: "bun"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "uv version check"
+    command: "uv"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "fd version check"
+    command: "fd"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "ripgrep version check"
+    command: "rg"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "bash version check"
+    command: "bash"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "busybox version check"
+    command: "busybox"
+    exitCode: 0
+
+  - name: "verify opencode seed directory"
+    command: "test"
+    args: ["-d", "/opt/mise-seed"]
+    exitCode: 0
+
+  - name: "verify opencode version file exists"
+    command: "test"
+    args: ["-f", "/opt/mise-seed/installs/opencode/.version"]
+    exitCode: 0
+
+  - name: "read opencode version"
+    command: "cat"
+    args: ["/opt/mise-seed/installs/opencode/.version"]
+    expectedOutput: [".*${OPENCODE_VERSION}.*"]
+
+  - name: "verify opencode binary exists"
+    command: "test"
+    args: ["-f", "/opt/mise-seed/installs/opencode/current/bin/opencode"]
+    exitCode: 0
+
+  - name: "verify /projects directory"
+    command: "test"
+    args: ["-d", "/projects"]
+    exitCode: 0
+
+# File Existence Tests - Verify filesystem structure
+fileExistenceTests:
+  # Core tools
+  - name: "mise binary exists"
+    path: "/usr/bin/mise"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    isExecutableBy: "any"
+
+  - name: "git binary exists"
+    path: "/usr/bin/git"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    isExecutableBy: "any"
+
+  - name: "bun binary exists"
+    path: "/usr/bin/bun"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    isExecutableBy: "any"
+
+  - name: "uv binary exists"
+    path: "/usr/bin/uv"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    isExecutableBy: "any"
+
+  - name: "fd binary exists"
+    path: "/usr/bin/fd"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    isExecutableBy: "any"
+
+  - name: "ripgrep binary exists"
+    path: "/usr/bin/rg"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    isExecutableBy: "any"
+
+  - name: "bash binary exists"
+    path: "/bin/bash"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    isExecutableBy: "any"
+
+  - name: "busybox binary exists"
+    path: "/bin/busybox"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+    isExecutableBy: "any"
+
+  # mise-seed directory structure
+  - name: "mise-seed directory exists"
+    path: "/opt/mise-seed"
+    shouldExist: true
+    permissions: "drwxr-xr-x"
+
+  - name: "opencode install directory exists"
+    path: "/opt/mise-seed/installs/opencode"
+    shouldExist: true
+    permissions: "drwxr-xr-x"
+
+  - name: "opencode version file exists"
+    path: "/opt/mise-seed/installs/opencode/.version"
+    shouldExist: true
+
+  - name: "opencode current symlink exists"
+    path: "/opt/mise-seed/installs/opencode/current"
+    shouldExist: true
+    isSymlink: true
+
+  - name: "opencode binary exists in seed"
+    path: "/opt/mise-seed/installs/opencode/current/bin/opencode"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  # /projects directory
+  - name: "projects directory exists"
+    path: "/projects"
+    shouldExist: true
+    permissions: "drwxr-xr-x"
+    uid: 1000
+    gid: 1000
+
+# File Content Tests - Verify file contents
+fileContentTests:
+  - name: "opencode version file contains correct version"
+    path: "/opt/mise-seed/installs/opencode/.version"
+    expectedContents: [".*${OPENCODE_VERSION}.*"]
+    excludedContents: ["error", "fail"]
+
+# Metadata Test - Verify container configuration
+metadataTest:
+  user: "1000"
+  entrypoint: ["/bin/sh"]
+  workdir: "/projects"
+
+  # Verify critical environment variables are NOT present (security)
+  unboundEnvVars:
+    - key: "SECRET_KEY"
+    - key: "PASSWORD"
+    - key: "API_KEY"
+    - key: "TOKEN"

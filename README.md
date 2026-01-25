@@ -6,10 +6,11 @@ A containerized OpenCode deployment for Kubernetes with pre-installed tools (bun
 
 This repository contains:
 - **apko configs**: Wolfi OS base image with opencode, bun, uv, and utilities
-- **melange configs**: Custom mise package build from source
+- **melange configs**: Custom packages for mise and opencode (built with melange)
 - **Makefile**: Build automation that reads versions from `versions.yml`
 - **GitHub Actions**: CI/CD pipeline for multi-architecture builds
 - **container-AGENTS.md**: Detailed container environment documentation for AI assistants
+- **Local package repository**: Packages built with melange and used by apko during image build
 
 ## Quick Start
 
@@ -22,18 +23,74 @@ This repository contains:
 - Access to GitHub Container Registry (for published images)
 
 ### Build the Image
-
 ```bash
-# Build and publish multi-arch image to registry
-make publish REGISTRY=ghcr.io/youruser TAG=latest
+# Build packages (mise and opencode) with melange
+make build-packages
 
-# Build local single arch for testing
-make build-local ARCH=amd64 TAG=test
-make build-local ARCH=arm64 TAG=test
+# Generate APKINDEX files for local repository
+make index-packages
+
+# Clean built packages
+make clean-packages
+
+# Update opencode version in package YAML
+make update-opencode
+
+# Build image with apko (uses local packages/)
+make build-local
+
+# Build and publish multi-arch image to registry
+make publish
+
+# Full build: packages + index + publish
+make build
 
 # View available targets and current versions
 make help
 ```
+
+### Local Package Repository
+
+Built packages are placed in `packages/` directory structure:
+
+```
+packages/
+├── x86_64/
+│   ├── APKINDEX.tar.gz
+│   ├── mise-VERSION.apk
+│   └── opencode-VERSION.apk
+└── aarch64/
+    ├── APKINDEX.tar.gz
+    ├── mise-VERSION.apk
+    └── opencode-VERSION.apk
+```
+
+This local repository is referenced in `apko/opencode.yaml` and is **not committed to git** (excluded by `.gitignore`). Packages are rebuilt on each build.
+
+
+Use `container-structure-test` to validate that the built image meets all requirements:
+
+```bash
+# Install the testing tool (macOS ARM64)
+make install-test-tools
+
+# Run structure tests on local image
+make test-structure
+
+# Run structure tests with JSON output
+make test-structure-json
+
+# Run structure tests on published image
+make test-structure-ci
+```
+
+Test configuration validates:
+- Package installation (mise, opencode, git, bun, uv, fd, ripgrep)
+- File structure and permissions (binary executables, directories with correct UID/GID)
+- Metadata (user=1000, entrypoint=/bin/sh, workdir=/projects, no exposed ports)
+- Security (no unbound environment variables/secret leakage)
+
+See `tests/structure-test.yaml` for complete test configuration.
 
 ### Run Locally
 

@@ -1,0 +1,70 @@
+package:
+  name: opencode
+  version: 1.1.35
+  epoch: 0
+  description: "opencode CLI tool - installed via mise and packaged for distribution"
+  copyright:
+    - license: MIT
+
+  dependencies:
+    runtime:
+      - ca-certificates-bundle
+
+  environment:
+    contents:
+      repositories:
+        - https://packages.wolfi.dev/os
+      keyring:
+        - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+      packages:
+        - mise
+        - curl
+
+  pipeline:
+    - name: Configure mise data directory
+      runs: |
+        mkdir -p /home/build/.config/mise
+        mkdir -p /home/build/.local/share/mise/installs
+        
+    - name: Install opencode with mise
+      runs: |
+        mise install opencode@${{package.version}}
+
+    - name: Capture mise installation to package
+      runs: |
+        # mise installs to ~/.local/share/mise/installs/<name>/<version>/
+        MISE_HOME=/home/build/.local/share/mise
+        OPENCODE_VERSION="${{package.version}}"
+        OPENCODE_DIR="$MISE_HOME/installs/opencode/$OPENCODE_VERSION"
+        SEED_DIR="${{targets.destdir}}/opt/mise-seed"
+        
+        # Create seed directory structure
+        mkdir -p "$SEED_DIR/installs/opencode"
+        
+        # Copy entire opencode installation from mise
+        cp -a "$OPENCODE_DIR" "$SEED_DIR/installs/opencode/$OPENCODE_VERSION"
+        
+        # Create symlinks for mise compatibility
+        cd "$SEED_DIR/installs/opencode"
+        ln -sf "$OPENCODE_VERSION" current
+        
+        # Create version file for easy detection
+        cd "$SEED_DIR/installs/opencode"
+        echo "$OPENCODE_VERSION" > .version
+
+  test:
+    environment:
+      contents:
+        packages:
+          - bash
+    pipeline:
+      - runs: |
+          # Verify seed directory structure exists
+          test -d "${{targets.destdir}}/opt/mise-seed/installs/opencode"
+          test -f "${{targets.destdir}}/opt/mise-seed/installs/opencode/.version"
+          
+          # Verify version matches
+          VERSION=$(cat "${{targets.destdir}}/opt/mise-seed/installs/opencode/.version")
+          test "$VERSION" = "${{package.version}}"
+          
+          echo "opencode package test passed"

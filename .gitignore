@@ -1,0 +1,17 @@
+# opensrc - source code for packages
+opensrc/
+
+# APK packages and indexes
+packages/
+packages/**
+
+# Temporary build artifacts
+*.tar
+*.tar.gz
+.opko-automount/
+
+# Mise data directories (local only)
+mise-data/
+
+# Test tools (downloaded locally)
+container-structure-test-*

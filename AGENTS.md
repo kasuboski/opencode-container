@@ -14,18 +14,82 @@ This repository builds a Docker container for OpenCode deployment on Kubernetes.
 ## Build Commands
 
 ```bash
-# Build mise package with melange
-melange build --arch x86_64,aarch64 melange/mise/package.yaml --repository-dir packages/
+# Install container-structure-test tool (for running tests)
+make install-test-tools
+
+# Build mise package only
+make build-mise
+
+# Build opencode package only
+make build-opencode
+
+# Build both packages (mise and opencode)
+make build-packages
+
+# Generate APKINDEX files for local repository
+make index-packages
+
+# Clean built packages
+make clean-packages
 
 # Build image with apko
-apko build apko/opencode.yaml ghcr.io/user/opencode:latest opencode.tar
+make build-local
 
 # Publish image
-apko publish apko/opencode.yaml ghcr.io/user/opencode:latest
+make publish
+
+# Full build: packages + index + publish
+make build
+
+# Run structure tests on local image
+make test-structure
+
+# Run structure tests on published image
+make test-structure-ci
 
 # Show available targets and current versions
 make help
 ```
+
+The `opencode` package has `mise` as a build-time dependency in `melange/opencode/package.yaml`. This creates a circular dependency when building packages together locally because:
+
+1. Building `mise` package requires Wolfi repository access
+2. Building `opencode` package requires `mise` package (not yet built)
+3. melange cannot find the local `mise` package when building `opencode`
+
+**Solution in CI/CD:**
+The GitHub Actions workflow builds packages sequentially:
+1. Builds `mise` package first
+2. Then builds `opencode` package (now `mise` is available in local repository)
+3. Both packages use `--ignore-signatures` flag to bypass signature verification
+
+**Local workaround:**
+To build just the `mise` package locally:
+```bash
+make build-mise
+```
+
+Then manually build `opencode` after (if needed for testing).
+
+### Local Package Repository
+
+The project uses a local package repository for packages built with melange:
+
+```
+packages/
+├── x86_64/
+│   ├── APKINDEX.tar.gz
+│   ├── mise-*.apk
+│   └── opencode-*.apk
+└── aarch64/
+    ├── APKINDEX.tar.gz
+    ├── mise-*.apk
+    └── opencode-*.apk
+```
+
+The local repository is referenced in `apko/opencode.yaml` and contains:
+- **mise package**: Built from source, installs to `/usr/bin/mise`
+- **opencode package**: Built with melange, uses mise to install opencode, packages to `/opt/mise-seed/`
 
 Version variables are read from `versions.yml` via yq:
 ```bash
@@ -35,12 +99,24 @@ MISE_VERSION=$(shell yq e '.mise' versions.yml)
 
 ## CI/CD
 
+### Docker-based Package Building Limitation
+
+**Note:** Docker-based package building is not supported because the chainguard/melange Docker image does not have Wolfi repositories pre-configured. Attempting to run melange in Docker container fails with "must provide at least one repository" error when trying to resolve build dependencies like `lua-5.1-dev`.
+
+The CI/CD workflow uses GitHub Actions (Ubuntu runner) with melange installed directly, so it has full access to system package managers and repositories. This works correctly.
+
+**To build packages locally for testing:**
+1. Use GitHub Actions to build packages (PR will create artifacts)
+2. Download .apk and APKINDEX.tar.gz files from Actions artifacts
+3. Build image locally with `make build-local`
+
 GitHub Actions workflow: `.github/workflows/ci.yml`
-- Triggers on push to main (when versions.yml, apko configs, or workflow changes)
+- Triggers on push to main (when versions.yml, apko configs, melange configs, or workflow changes)
 - Triggers on all PRs to main (builds but does not push)
 - Builds for linux/amd64 and linux/arm64 platforms
-- Uses GitHub Actions cache for faster builds
-- Uses apko-action and melange-action
+- Downloads and uses apko and melange CLI tools directly
+- Builds local packages, generates APKINDEX files, then builds and publishes image
+- Login to ghcr.io registry required (uses GITHUB_TOKEN)
 
 ## Code Style Guidelines
 
@@ -59,6 +135,8 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 - Set expected-sha256/sha512 for fetch steps
 - Use `strip` use to reduce binary size
 - Use `test` section for package validation
+- **Build-time dependencies**: Use `environment.contents.packages` to list packages needed during build (e.g., for opencode package, mise is listed as a build dependency so it's available to use in pipeline steps)
+- **Run installed tools**: Pipeline steps can run commands from packages listed in `environment.contents.packages` (e.g., `mise install opencode@VERSION`)
 
 ### Makefile
 - Use `:=` for variables read from shell commands
@@ -84,16 +162,32 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 
 All component versions are defined in `versions.yml` as the single source of truth:
 ```yaml
-opencode: 1.1.26
-mise: 2024.11.37
-# Wolfi packages use latest from repo by default
-# To pin specific versions, edit apko/opencode.yaml directly
+opencode: 1.1.35
+mise: 2026.1.6
+# Wolfi packages (bun, uv, git, fd, ripgrep) use latest from repo by default
 ```
 
 To update versions:
-- opencode: Edit `versions.yml`, rebuild image
+- opencode: Edit `versions.yml`, run `make update-opencode`, rebuild packages and image
 - mise: Edit `melange/mise/package.yaml`, rebuild with melange
-- Wolfi packages (bun, uv): Edit apko.yaml packages list or pin versions
+- Wolfi packages: Edit apko.yaml packages list or pin versions
+
+### Updating opencode Version
+
+Use the `update-opencode` make target to update the opencode package version:
+
+```bash
+# Update opencode version in versions.yml (e.g., to 1.1.36)
+echo "opencode: 1.1.36" > versions.yml
+
+# Update version in melange package YAML
+make update-opencode
+
+# Rebuild packages and image
+make build
+```
+
+The `update-opencode` target uses `yq` to update the version in `melange/opencode/package.yaml` to match `versions.yml`.
 
 ## Error Handling
 
@@ -273,3 +367,26 @@ apko build apko/opencode.yaml ghcr.io/user/opencode:latest opencode.tar
 ### Version parsing errors
 - Verify yq is installed: `which yq`
 - Check versions.yml syntax: `yq e '.' versions.yml`
+
+<!-- opensrc:start -->
+
+## Source Code Reference
+
+Source code for dependencies is available in `opensrc/` for deeper understanding of implementation details.
+
+See `opensrc/sources.json` for the list of available packages and their versions.
+
+Use this source code when you need to understand how a package works internally, not just its types/interface.
+
+### Fetching Additional Source Code
+
+To fetch source code for a package or repository you need to understand, run:
+
+```bash
+bunx opensrc <package>           # npm package (e.g., npx opensrc zod)
+bunx opensrc pypi:<package>      # Python package (e.g., npx opensrc pypi:requests)
+bunx opensrc crates:<package>    # Rust crate (e.g., npx opensrc crates:serde)
+bunx opensrc <owner>/<repo>      # GitHub repo (e.g., npx opensrc vercel/ai)
+```
+
+<!-- opensrc:end -->
