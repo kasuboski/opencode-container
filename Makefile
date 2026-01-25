@@ -43,9 +43,21 @@ install-test-tools:
 .PHONY: build-packages
 build-packages:
 	@echo "Building mise package..."
-	cd melange/mise && melange build --arch x86_64,aarch64 package.yaml --repository-dir ../../$(PACKAGES_DIR)/
+	melange build \
+		--keyring-append $(WOLFI_KEY) \
+		--repository-append $(WOLFI_REPO) \
+		--repository-append $(LOCAL_REPO) \
+		--arch x86_64,aarch64 \
+		--ignore-signatures \
+		melange/mise/package.yaml
 	@echo "Building opencode package..."
-	cd melange/opencode && melange build --arch x86_64,aarch64 package.yaml --repository-dir ../../$(PACKAGES_DIR)/ --ignore-signatures
+	melange build \
+		--keyring-append $(WOLFI_KEY) \
+		--repository-append $(WOLFI_REPO) \
+		--repository-append $(LOCAL_REPO) \
+		--arch x86_64,aarch64 \
+		--ignore-signatures \
+		melange/opencode/package.yaml
 
 .PHONY: index-packages
 index-packages:
