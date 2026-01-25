@@ -32,9 +32,11 @@ jobs:
       - name: Install apko
         run: |
           wget https://github.com/chainguard-dev/apko/releases/download/v1.0.4/apko_1.0.4_linux_amd64.tar.gz
-          tar -xzf apko_1.0.4_linux_amd64.tar.gz
-          mv apko apko-cli
+          mkdir -p .tmp-apko
+          tar -xzf apko_1.0.4_linux_amd64.tar.gz -C .tmp-apko
+          mv .tmp-apko/apko apko-cli
           chmod +x apko-cli
+          rm -rf .tmp-apko
 
       - name: Build packages
         run: make build-packages index-packages
