@@ -39,7 +39,6 @@ pipeline:
 
       cargo auditable build --release --frozen --bin mise --no-default-features
 
-  - runs: |
       cargo test --frozen --no-default-features
 
   - runs: |
@@ -69,7 +68,9 @@ subpackages:
       - uses: split/manpages
       - runs: |
           mkdir -p "${{targets.subpkgdir}}/usr/share/doc"
-          mv "${{targets.destdir}}/usr/share/doc/mise" "${{targets.subpkgdir}}/usr/share/doc/"
+          if [ -d "${{targets.destdir}}/usr/share/doc/mise" ]; then
+            mv "${{targets.destdir}}/usr/share/doc/mise" "${{targets.subpkgdir}}/usr/share/doc/"
+          fi
 
 update:
   enabled: true

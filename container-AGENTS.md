@@ -23,7 +23,7 @@ This document describes the OpenCode container environment for AI assistants.
 - `MISE_CONFIG_DIR` - Where mise configuration lives (default: `$HOME/.config/mise`)
 - `MISE_CACHE_DIR` - Download cache location (default: `$HOME/.cache/mise`)
 
-Note: In production, `MISE_DATA_DIR` is set to `/home/opencode/.local/share/mise` and synced from `/opt/mise-seed` via init container. The seed directory is currently empty; install opencode manually on first run using `mise use opencode@VERSION`.
+Note: In production, `MISE_DATA_DIR` is set to `/home/opencode/.local/share/mise` and synced from `/opt/mise-seed` via init container. The opencode package pre-populates `/opt/mise-seed` during image build.
 
 ## Mount Points
 
@@ -113,7 +113,7 @@ node = "20"
 experimental = true
 ```
 
-Note: In production, the Seed & Sync pattern ensures pre-installed tools (like opencode) are available in `MISE_DATA_DIR`. User-installed tools via `mise install` persist to the same directory.
+Note: In production, the Seed & Sync pattern ensures tools installed into `/opt/mise-seed` (rsync on init) are available in `MISE_DATA_DIR`. User-installed tools via `mise install` persist to the same directory.
 
 ## Security
 

@@ -15,6 +15,7 @@ contents:
     - uv
     - mise
     - opencode
+    - rsync
 
 accounts:
   run-as: 1000

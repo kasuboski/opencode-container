@@ -6,7 +6,7 @@ A containerized OpenCode deployment for Kubernetes with pre-installed tools (bun
 
 This repository contains:
 - **apko configs**: Wolfi OS base image with opencode, bun, uv, and utilities
-- **melange configs**: Custom packages for mise and opencode (built with melange)
+- **melange configs**: Custom package for mise (built with melange); opencode is managed by mise
 - **Makefile**: Build automation that reads versions from `versions.yml`
 - **GitHub Actions**: CI/CD pipeline for multi-architecture builds
 - **container-AGENTS.md**: Detailed container environment documentation for AI assistants
@@ -159,21 +159,15 @@ When you mount a Kubernetes Persistent Volume (PV) to a path (e.g., `/home/openc
 Instead of installing tools directly to the final destination, they're installed to a "Seed" directory (`/opt/mise-seed`) during the image build. At runtime, an init container syncs these tools to the PV using `rsync --ignore-existing`, which preserves user-installed tool versions.
 
 ### Implementation
-- **Build time**: Tools installed to `/opt/mise-seed` (currently empty, mise available via Wolfi packages)
+- **Build time**: The opencode package installs opencode to `/opt/mise-seed` during package build
 - **Runtime**: Uses `MISE_DATA_DIR=/home/opencode/.local/share/mise`
 - **Init Container**: Syncs `/opt/mise-seed/` → `/home/opencode/.local/share/mise/` with `--ignore-existing`
 
 ### First Run Setup
-On first container run (or when starting a new environment), install opencode using mise:
-```bash
-# In the container or via exec
-mise use opencode@1.1.26
-```
-
-This will install opencode to your persistent mise data directory and make it available immediately. Future container restarts will preserve this installation via the seed sync.
+The opencode package pre-installs opencode to `/opt/mise-seed` during image build. On container startup, the init container syncs this to the persistent volume at `/home/opencode/.local/share/mise`. No manual installation is needed.
 
 ### Benefits
-- Pre-installed tools (opencode) start instantly
+- Tools installed via seed sync are available immediately
 - User-installed tools persist across pod restarts
 - User tool upgrades aren't overwritten on restart
 - Files owned by the container user (UID 1000)
@@ -182,7 +176,7 @@ This will install opencode to your persistent mise data directory and make it av
 
 | Tool | Purpose |
 |------|---------|
-| `opencode` | AI coding agent |
+| `opencode` | AI coding agent (installed via mise) |
 | `mise` | Tool version manager (installed via melange) |
 | `bun` | JavaScript runtime and package manager |
 | `uv` | Fast Python package manager |
@@ -233,6 +227,32 @@ metadata:
 type: Opaque
 stringData:
   password: "your-secure-password"
+```
+
+### PersistentVolumeClaim
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opencode-projects-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opencode-mise-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 ```
 
 ### Deployment

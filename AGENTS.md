@@ -178,7 +178,7 @@ Use the `update-opencode` make target to update the opencode package version:
 
 ```bash
 # Update opencode version in versions.yml (e.g., to 1.1.36)
-echo "opencode: 1.1.36" > versions.yml
+yq e '.opencode = "1.1.36"' -i versions.yml
 
 # Update version in melange package YAML
 make update-opencode
@@ -215,7 +215,7 @@ The `update-opencode` target uses `yq` to update the version in `melange/opencod
 
 The container uses a Seed & Sync pattern for persistent tool configuration:
 
-1. **Seed build**: During image build, `/opt/mise-seed` directory is created (currently empty, mise available via Wolfi packages)
+1. **Seed build**: During image build, the opencode package populates `/opt/mise-seed` with the pre-installed opencode tool.
 2. **Init container**: Copies seed tools to `/home/opencode/.local/share/mise` with `rsync --ignore-existing`
 3. **Runtime**: mise reads from user data directory, respecting existing tools and plugins
 
@@ -224,13 +224,7 @@ This allows:
 - Upgrades to container don't overwrite user-installed tools
 
 ### First Run Setup
-On first container run (or when starting a new environment), install opencode using mise:
-```bash
-# In the container or via exec
-mise use opencode@$(OPENCODE_VERSION)
-```
-
-This will install opencode to your persistent mise data directory and make it available immediately. Future container restarts will preserve this installation via the seed sync.
+The opencode package pre-installs opencode to `/opt/mise-seed` during image build. No manual installation is needed; the init container handles the sync on container startup.
 
 Example initContainer:
 ```yaml

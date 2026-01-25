@@ -34,7 +34,7 @@ CONTAINER_STRUCTURE_TEST_URL := https://github.com/GoogleContainerTools/containe
 install-test-tools:
 	@echo "Installing container-structure-test..."
 	@if [ ! -f "$(CONTAINER_STRUCTURE_TEST)" ]; then \
-		curl -fsSLO $(CONTAINER_STRUCTURE_TEST_URL) -o $(CONTAINER_STRUCTURE_TEST); \
+		curl -fsSL $(CONTAINER_STRUCTURE_TEST_URL) -o $(CONTAINER_STRUCTURE_TEST); \
 		chmod +x $(CONTAINER_STRUCTURE_TEST); \
 	else \
 		echo "container-structure-test already installed"; \
@@ -51,7 +51,7 @@ build-packages:
 index-packages:
 	@echo "Generating APKINDEX files..."
 	cd $(PACKAGES_DIR)/x86_64 && melange index -o APKINDEX.tar.gz *.apk
-	cd ../aarch64 && melange index -o APKINDEX.tar.gz *.apk
+	cd $(PACKAGES_DIR)/aarch64 && melange index -o APKINDEX.tar.gz *.apk
 
 .PHONY: clean-packages
 clean-packages:
