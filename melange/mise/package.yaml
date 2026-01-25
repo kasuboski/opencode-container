@@ -19,7 +19,8 @@ environment:
       - cargo-auditable
       - rust
       - openssl-dev
-      - lua-5.1-dev
+      - luajit-dev
+      - pkgconf
       - bash
       - direnv
 
@@ -30,6 +31,10 @@ pipeline:
       expected-sha512: 5a5562e6fb7715a90ccac98affd89ab50f932294d96486d43537f54f505375a2ba32d61501a36d4bf964a970cef206ed3ba9fc25c3b8d7edd85755963e36cff7
 
   - runs: |
+      mkdir -p /usr/lib/pkgconfig
+      find /usr -name "luajit.pc" -exec ln -sf {} /usr/lib/pkgconfig/lua51.pc \;
+      export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+
       cargo fetch --target="${{host.triplet.gnu}}" --locked
 
       cargo auditable build --release --frozen --bin mise --no-default-features

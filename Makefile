@@ -14,6 +14,14 @@ PACKAGES_DIR := packages
 # Structure test config
 STRUCTURE_TEST_CONFIG := tests/structure-test.yaml
 
+# Wolfi repository configuration
+WOLFI_REPO := https://packages.wolfi.dev/os
+WOLFI_KEY := https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+LOCAL_REPO := $(PWD)/packages
+
+# Docker image for package building
+MELANGE_DOCKER_IMAGE := ghcr.io/wolfi-dev/sdk:latest
+
 # Download container-structure-test for current platform
 CONTAINER_STRUCTURE_TEST_URL := https://github.com/GoogleContainerTools/container-structure-test/releases/latest/download/container-structure-test-darwin-arm64
 CONTAINER_STRUCTURE_TEST := container-structure-test-darwin-arm64
@@ -46,6 +54,42 @@ clean-packages:
 	@echo "Cleaning built packages..."
 	rm -rf $(PACKAGES_DIR)/x86_64/* $(PACKAGES_DIR)/aarch64/*
 
+.PHONY: build-mise-docker
+build-mise-docker:
+	@echo "Building mise package with Docker..."
+	docker run --privileged \
+		-v "$(PWD):/work" \
+		-w /work \
+		--entrypoint=melange \
+		$(MELANGE_DOCKER_IMAGE) \
+		build \
+		--keyring-append $(WOLFI_KEY) \
+		--repository-append $(WOLFI_REPO) \
+		--repository-append $(LOCAL_REPO) \
+		--ignore-signatures \
+		--arch x86_64,aarch64 \
+		melange/mise/package.yaml
+
+.PHONY: build-opencode-docker
+build-opencode-docker:
+	@echo "Building opencode package with Docker..."
+	docker run --privileged \
+		-v "$(PWD):/work" \
+		-w /work \
+		--entrypoint=melange \
+		$(MELANGE_DOCKER_IMAGE) \
+		build \
+		--keyring-append $(WOLFI_KEY) \
+		--repository-append $(WOLFI_REPO) \
+		--repository-append $(LOCAL_REPO) \
+		--ignore-signatures \
+		--arch x86_64,aarch64 \
+		melange/opencode/package.yaml
+
+.PHONY: build-packages-docker
+build-packages-docker: build-mise-docker build-opencode-docker
+	@echo "All packages built with Docker"
+
 .PHONY: update-opencode
 update-opencode:
 	@echo "Updating opencode version in melange/opencode/package.yaml..."
@@ -68,7 +112,10 @@ help:
 	@echo "Available targets:"
 	@echo "  install-test-tools   - Download container-structure-test tool"
 	@echo "  update-opencode     - Update opencode version in melange package YAML"
-	@echo "  build-packages       - Build mise and opencode packages with melange"
+	@echo "  build-packages       - Build mise and opencode packages with melange (direct)"
+	@echo "  build-packages-docker - Build mise and opencode packages with Docker"
+	@echo "  build-mise-docker    - Build mise package with Docker"
+	@echo "  build-opencode-docker - Build opencode package with Docker"
 	@echo "  index-packages       - Generate APKINDEX files for local repository"
 	@echo "  clean-packages       - Remove all built packages"
 	@echo "  build-local         - Build image with apko for local testing"
