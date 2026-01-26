@@ -117,11 +117,16 @@ jobs:
       - name: Load arm64 image
         run: docker load < artifacts/image-arm64/opencode-arm64.tar
 
-      - name: Create and push multiarch manifests
+      - name: Push arch-specific images
         run: |
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            docker manifest create $tag \
-              ghcr.io/${{ github.repository }}:amd64 \
-              ghcr.io/${{ github.repository }}:arm64
-            docker manifest push $tag
+          docker push "ghcr.io/${{ github.repository }}:amd64"
+          docker push "ghcr.io/${{ github.repository }}:arm64"
+
+      - name: Create and push multiarch manifests
+        shell: bash
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' | while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker manifest create "$tag" "ghcr.io/${{ github.repository }}:amd64" "ghcr.io/${{ github.repository }}:arm64"
+            docker manifest push "$tag"
           done
