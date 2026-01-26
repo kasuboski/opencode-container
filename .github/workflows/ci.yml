@@ -13,17 +13,14 @@ on:
     branches: [main]
 
 jobs:
-  build-and-publish:
+  build-amd64:
     permissions:
       contents: read
       id-token: write
       packages: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Install melange
         uses: chainguard-dev/actions/setup-melange@v1.5.12
@@ -43,19 +40,92 @@ jobs:
         run: make build-packages index-packages
 
       - name: Build apko image
-        run: ./apko-cli build apko/opencode.yaml ghcr.io/${{ github.repository }}:latest opencode.tar --ignore-signatures
+        run: ./apko-cli build apko/opencode.yaml ghcr.io/${{ github.repository }}:amd64 opencode-amd64.tar --arch x86_64 --ignore-signatures
 
-      - name: Load image to Docker
-        run: docker load < opencode.tar
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-amd64
+          path: opencode-amd64.tar
+
+  build-arm64:
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install melange
+        uses: chainguard-dev/actions/setup-melange@v1.5.12
+        with:
+          version: 'v0.39.0'
+
+      - name: Install apko
+        run: |
+          wget https://github.com/chainguard-dev/apko/releases/download/v1.0.4/apko_1.0.4_linux_arm64.tar.gz
+          mkdir -p .tmp-apko
+          tar -xzf apko_1.0.4_linux_arm64.tar.gz -C .tmp-apko --strip-components=1
+          mv .tmp-apko/apko apko-cli
+          chmod +x apko-cli
+          rm -rf .tmp-apko
+
+      - name: Build packages
+        run: make build-packages index-packages
+
+      - name: Build apko image
+        run: ./apko-cli build apko/opencode.yaml ghcr.io/${{ github.repository }}:arm64 opencode-arm64.tar --arch aarch64 --ignore-signatures
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-arm64
+          path: opencode-arm64.tar
+
+  publish:
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    runs-on: ubuntu-24.04
+    needs: [build-amd64, build-arm64]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
       - name: Login to GitHub Container Registry
-        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push image
-        if: github.ref == 'refs/heads/main'
-        run: docker push ghcr.io/${{ github.repository }}:latest
+      - name: Load amd64 image
+        run: docker load < artifacts/image-amd64/opencode-amd64.tar
+
+      - name: Load arm64 image
+        run: docker load < artifacts/image-arm64/opencode-arm64.tar
+
+      - name: Create and push multiarch manifests
+        run: |
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            docker manifest create $tag \
+              ghcr.io/${{ github.repository }}:amd64 \
+              ghcr.io/${{ github.repository }}:arm64
+            docker manifest push $tag
+          done

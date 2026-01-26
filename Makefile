@@ -114,7 +114,7 @@ update-opencode:
 .PHONY: build-local
 build-local:
 	@echo "Building apko image..."
-	apko build $(APKO_CONFIG) $(IMAGE_NAME):$(TAG) $(IMAGE_NAME).tar --ignore-signatures
+	apko build $(APKO_CONFIG) $(IMAGE_NAME):$(TAG) $(IMAGE_NAME).tar --arch host --ignore-signatures
 
 .PHONY: publish
 publish:
