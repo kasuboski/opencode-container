@@ -16,8 +16,6 @@ jobs:
   build-amd64:
     permissions:
       contents: read
-      id-token: write
-      packages: write
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +35,7 @@ jobs:
           rm -rf .tmp-apko
 
       - name: Build packages
-        run: make build-packages index-packages
+        run: MELANGE_ARCH=x86_64 make build-packages index-packages
 
       - name: Build apko image
         run: ./apko-cli build apko/opencode.yaml ghcr.io/${{ github.repository }}:amd64 opencode-amd64.tar --arch x86_64 --ignore-signatures
@@ -51,8 +49,6 @@ jobs:
   build-arm64:
     permissions:
       contents: read
-      id-token: write
-      packages: write
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +68,7 @@ jobs:
           rm -rf .tmp-apko
 
       - name: Build packages
-        run: make build-packages index-packages
+        run: MELANGE_ARCH=aarch64 make build-packages index-packages
 
       - name: Build apko image
         run: ./apko-cli build apko/opencode.yaml ghcr.io/${{ github.repository }}:arm64 opencode-arm64.tar --arch aarch64 --ignore-signatures

@@ -22,6 +22,9 @@ LOCAL_REPO := $(PWD)/packages
 # Docker image for package building
 MELANGE_DOCKER_IMAGE := ghcr.io/wolfi-dev/sdk:latest
 
+# Package architecture(s) - override for single-arch builds
+MELANGE_ARCH ?= x86_64,aarch64
+
 # Detect host OS/arch for container-structure-test
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
@@ -47,7 +50,7 @@ build-packages:
 		--keyring-append $(WOLFI_KEY) \
 		--repository-append $(WOLFI_REPO) \
 		--repository-append $(LOCAL_REPO) \
-		--arch x86_64,aarch64 \
+		--arch $(MELANGE_ARCH) \
 		--ignore-signatures \
 		melange/mise/package.yaml
 	@echo "Building opencode package..."
@@ -55,7 +58,7 @@ build-packages:
 		--keyring-append $(WOLFI_KEY) \
 		--repository-append $(WOLFI_REPO) \
 		--repository-append $(LOCAL_REPO) \
-		--arch x86_64,aarch64 \
+		--arch $(MELANGE_ARCH) \
 		--ignore-signatures \
 		melange/opencode/package.yaml
 
