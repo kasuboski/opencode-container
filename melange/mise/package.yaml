@@ -32,15 +32,15 @@ pipeline:
 
   - name: Fetch dependencies
     runs: |
+      export CARGO_HOME=/var/cache/cargo
+      mkdir -p /var/cache/cargo
       sed -i 's/"worktree-mutation"/"worktree-mutation", "blocking-network-client"/' Cargo.toml
       cargo fetch --locked
 
   - name: Configure and Build
-    uses: cargo/build
-    with:
-      modroot: .
-      output: mise
-      opts: --release --no-default-features
+    runs: |
+      export CARGO_HOME=/var/cache/cargo
+      cargo build --release --no-default-features
 
   - uses: strip
 
