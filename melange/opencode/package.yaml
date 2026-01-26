@@ -5,66 +5,65 @@ package:
   description: "opencode CLI tool - installed via mise and packaged for distribution"
   copyright:
     - license: MIT
-
   dependencies:
     runtime:
       - ca-certificates-bundle
 
+environment:
+  contents:
+    packages:
+      - mise
+      - curl
+
+pipeline:
+  - name: Configure mise data directory
+    runs: |
+      export MISE_CONFIG_DIR=/home/build/.config/mise
+      export MISE_DATA_DIR=/home/build/.local/share/mise
+      mkdir -p "$MISE_CONFIG_DIR"
+      mkdir -p "$MISE_DATA_DIR/installs"
+
+  - name: Install opencode with mise
+    runs: |
+      export MISE_CONFIG_DIR=/home/build/.config/mise
+      export MISE_DATA_DIR=/home/build/.local/share/mise
+      mise install opencode@${{package.version}}
+
+  - name: Capture mise installation to package
+    runs: |
+      # Use documented MISE_DATA_DIR variable
+      export MISE_DATA_DIR=/home/build/.local/share/mise
+      OPENCODE_VERSION="${{package.version}}"
+      OPENCODE_DIR="$MISE_DATA_DIR/installs/opencode/$OPENCODE_VERSION"
+      SEED_DIR="${{targets.destdir}}/opt/mise-seed"
+
+      # Create seed directory structure
+      mkdir -p "$SEED_DIR/installs/opencode"
+
+      # Copy entire opencode installation from mise
+      cp -a "$OPENCODE_DIR" "$SEED_DIR/installs/opencode/$OPENCODE_VERSION"
+
+      # Create symlinks for mise compatibility
+      cd "$SEED_DIR/installs/opencode"
+      ln -sf "$OPENCODE_VERSION" current
+
+      # Create version file for easy detection
+      cd "$SEED_DIR/installs/opencode"
+      echo "$OPENCODE_VERSION" > .version
+
+test:
   environment:
     contents:
       packages:
-        - mise
-        - curl
-
+        - bash
   pipeline:
-    - name: Configure mise data directory
-      runs: |
-        export MISE_CONFIG_DIR=/home/build/.config/mise
-        export MISE_DATA_DIR=/home/build/.local/share/mise
-        mkdir -p "$MISE_CONFIG_DIR"
-        mkdir -p "$MISE_DATA_DIR/installs"
+    - runs: |
+        # Verify seed directory structure exists
+        test -d "${{targets.destdir}}/opt/mise-seed/installs/opencode"
+        test -f "${{targets.destdir}}/opt/mise-seed/installs/opencode/.version"
 
-    - name: Install opencode with mise
-      runs: |
-        export MISE_CONFIG_DIR=/home/build/.config/mise
-        export MISE_DATA_DIR=/home/build/.local/share/mise
-        mise install opencode@${{package.version}}
+        # Verify version matches
+        VERSION=$(cat "${{targets.destdir}}/opt/mise-seed/installs/opencode/.version")
+        test "$VERSION" = "${{package.version}}"
 
-    - name: Capture mise installation to package
-      runs: |
-        # Use documented MISE_DATA_DIR variable
-        export MISE_DATA_DIR=/home/build/.local/share/mise
-        OPENCODE_VERSION="${{package.version}}"
-        OPENCODE_DIR="$MISE_DATA_DIR/installs/opencode/$OPENCODE_VERSION"
-        SEED_DIR="${{targets.destdir}}/opt/mise-seed"
-        
-        # Create seed directory structure
-        mkdir -p "$SEED_DIR/installs/opencode"
-        
-        # Copy entire opencode installation from mise
-        cp -a "$OPENCODE_DIR" "$SEED_DIR/installs/opencode/$OPENCODE_VERSION"
-        
-        # Create symlinks for mise compatibility
-        cd "$SEED_DIR/installs/opencode"
-        ln -sf "$OPENCODE_VERSION" current
-        
-        # Create version file for easy detection
-        cd "$SEED_DIR/installs/opencode"
-        echo "$OPENCODE_VERSION" > .version
-
-  test:
-    environment:
-      contents:
-        packages:
-          - bash
-    pipeline:
-      - runs: |
-          # Verify seed directory structure exists
-          test -d "${{targets.destdir}}/opt/mise-seed/installs/opencode"
-          test -f "${{targets.destdir}}/opt/mise-seed/installs/opencode/.version"
-          
-          # Verify version matches
-          VERSION=$(cat "${{targets.destdir}}/opt/mise-seed/installs/opencode/.version")
-          test "$VERSION" = "${{package.version}}"
-          
-          echo "opencode package test passed"
+        echo "opencode package test passed"
