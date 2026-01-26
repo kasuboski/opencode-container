@@ -30,8 +30,6 @@ pipeline:
       find /usr -name "luajit.pc" -exec ln -sf {} /usr/lib/pkgconfig/lua51.pc \;
       export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
 
-  - uses: rust/cargobump
-
   - name: Configure and Build
     uses: cargo/build
     with:
