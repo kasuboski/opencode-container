@@ -47,6 +47,7 @@ install-test-tools:
 build-packages:
 	@echo "Building mise package..."
 	melange build \
+		--runner docker \
 		--keyring-append $(WOLFI_KEY) \
 		--repository-append $(WOLFI_REPO) \
 		--repository-append $(LOCAL_REPO) \
@@ -55,6 +56,7 @@ build-packages:
 		melange/mise/package.yaml
 	@echo "Building opencode package..."
 	melange build \
+		--runner docker \
 		--keyring-append $(WOLFI_KEY) \
 		--repository-append $(WOLFI_REPO) \
 		--repository-append $(LOCAL_REPO) \
