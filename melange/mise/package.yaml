@@ -31,7 +31,9 @@ pipeline:
       export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
 
   - name: Fetch dependencies
-    runs: cargo fetch --locked
+    runs: |
+      sed -i 's/"worktree-mutation"/"worktree-mutation", "blocking-network-client"/' Cargo.toml
+      cargo fetch --locked
 
   - name: Configure and Build
     uses: cargo/build
