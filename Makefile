@@ -53,6 +53,7 @@ build-packages:
 		--repository-append $(LOCAL_REPO) \
 		--arch $(MELANGE_ARCH) \
 		--ignore-signatures \
+		--disable-licenses \
 		melange/mise/package.yaml
 	@echo "Building opencode package..."
 	melange build \
@@ -62,6 +63,7 @@ build-packages:
 		--repository-append $(LOCAL_REPO) \
 		--arch $(MELANGE_ARCH) \
 		--ignore-signatures \
+		--disable-licenses \
 		melange/opencode/package.yaml
 
 .PHONY: index-packages
