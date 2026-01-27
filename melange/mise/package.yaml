@@ -10,16 +10,16 @@ package:
       - ca-certificates-bundle
       - git
 
-  environment:
-    contents:
-      packages:
-        - build-base
-        - busybox
-        - ca-certificates-bundle
-        - luajit-dev
-        - openssl-dev
-        - pkgconf
-        - rust
+environment:
+  contents:
+    packages:
+      - build-base
+      - busybox
+      - ca-certificates-bundle
+      - luajit-dev
+      - openssl-dev
+      - pkgconf
+      - rust
 
 pipeline:
   - uses: fetch
