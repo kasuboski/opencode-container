@@ -10,13 +10,16 @@ package:
       - ca-certificates-bundle
       - git
 
-environment:
-  contents:
-    packages:
-      - ca-certificates-bundle
-      - luajit-dev
-      - openssl-dev
-      - pkgconf
+  environment:
+    contents:
+      packages:
+        - build-base
+        - busybox
+        - ca-certificates-bundle
+        - luajit-dev
+        - openssl-dev
+        - pkgconf
+        - rust
 
 pipeline:
   - uses: fetch
@@ -41,6 +44,10 @@ pipeline:
     runs: |
       export CARGO_HOME=/var/cache/cargo
       cargo build --release --no-default-features
+
+  - name: Install
+    runs: |
+      install -Dm755 target/release/mise "${{targets.destdir}}"/usr/bin/mise
 
   - uses: strip
 
