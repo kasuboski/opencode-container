@@ -62,16 +62,14 @@ jobs:
           chmod +x container-structure-test-linux-amd64
           sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
 
-      - name: Build multi-arch (load amd64 for testing, push both on main)
-        id: build
+      - name: Build amd64 (load for testing)
+        id: build-amd64
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           load: true
-          push: ${{ github.ref == 'refs/heads/main' }}
-          tags: opencode:test-amd64,${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: opencode:test-amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -85,3 +83,21 @@ jobs:
           container-structure-test test \
             --image opencode:test-amd64 \
             --config container-structure-test.yaml
+
+      - name: Build multi-arch (push on main)
+        id: build-multiarch
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            OPENCODE_VERSION=${{ steps.versions.outputs.opencode }}
+            BUN_VERSION=${{ steps.versions.outputs.bun }}
+            UV_VERSION=${{ steps.versions.outputs.uv }}
+            MISE_VERSION=${{ steps.versions.outputs.mise }}
