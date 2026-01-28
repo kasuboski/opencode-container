@@ -10,8 +10,19 @@ bun_version = "{{ exec(command='yq e \".bun\" versions.yml') | trim }}"
 uv_version = "{{ exec(command='yq e \".uv\" versions.yml') | trim }}"
 mise_version = "{{ exec(command='yq e \".mise\" versions.yml') | trim }}"
 
+[tools]
+actionlint = "latest"
+hadolint = "latest"
+
 [task_config]
 dir = "{{ config_root }}"
+
+[tasks.lint]
+description = "Lint the project"
+run = '''
+actionlint
+hadolint Dockerfile
+'''
 
 [tasks.build]
 description = "Build multi-arch image and push to registry"

@@ -17,18 +17,20 @@ ENV MISE_CACHE_DIR=/home/opencode/.cache/mise
 ENV MISE_STATE_DIR=/home/opencode/.local/state/mise
 
 RUN apk add --no-cache \
-    bash \
-    ca-certificates \
-    curl \
-    fd \
-    gcompat \
-    git \
-    libgcc \
-    libstdc++ \
-    ripgrep \
-    tar \
-    unzip \
-    xz
+    bash=5.3.3-r1 \
+    ca-certificates=20251003-r0 \
+    curl=8.17.0-r1 \
+    fd=10.2.0-r3 \
+    gcompat=1.1.0-r4 \
+    git=2.52.0-r0 \
+    libgcc=15.2.0-r2 \
+    libstdc++=15.2.0-r2 \
+    ripgrep=15.1.0-r0 \
+    tar=1.35-r4 \
+    unzip=6.0-r16 \
+    xz=5.8.2-r0
+
+SHELL ["/bin/ash", "-o", "pipefail", "-e", "-c"]
 
 RUN curl -fsSL https://bun.sh/install | bash
 
@@ -61,6 +63,7 @@ RUN ARCH="arm64" && \
     rm -f opencode.tar.gz && \
     chmod +x /usr/local/bin/opencode
 
+# hadolint ignore=DL3006
 FROM build-${TARGETARCH} AS final
 
 RUN addgroup -g 1000 opencode && \
