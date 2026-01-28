@@ -6,7 +6,7 @@ A containerized OpenCode deployment for Kubernetes with pre-installed tools (bun
 
 This repository contains:
 - **Dockerfile**: Multi-stage Alpine Linux build for opencode, bun, uv, and utilities
-- **Makefile**: Build automation that reads versions from `versions.yml`
+- **mise.toml**: Build automation that reads versions from `versions.yml`
 - **GitHub Actions**: CI/CD pipeline for multi-architecture builds
 - **container-AGENTS.md**: Detailed container environment documentation for AI assistants
 
@@ -15,21 +15,21 @@ This repository contains:
 ### Prerequisites
 
 - Docker with buildx support
-- yq (for reading versions.yml)
+- mise (for running build tasks)
 - Access to GitHub Container Registry (for published images)
 
 ### Build the Image
 
 ```bash
 # Build multi-arch image and push to registry
-make build REGISTRY=ghcr.io/youruser TAG=latest
+mise run build REGISTRY=ghcr.io/yourorg/yourrepo TAG=latest
 
 # Build single arch for local testing
-make build-amd64 TAG=test
-make build-arm64 TAG=test
+TAG=test mise run build-amd64
+TAG=test mise run build-arm64
 
-# View available targets and current versions
-make help
+# List available tasks
+mise tasks ls
 ```
 
 ### Run Locally
@@ -48,12 +48,13 @@ docker run -d \
 
 ## Version Management
 
-Versions are defined in `versions.yml`:
+Versions are defined in `versions.yml` and are automatically read by mise tasks:
 
 ```yaml
 opencode: 1.1.26
 bun: 1.1.35
 uv: 0.9.21
+mise: v2026.1.8
 ```
 
 To update versions:
@@ -80,11 +81,14 @@ Place OpenCode configuration in `$HOME/.opencode/`:
 └── .opencode/          # Additional settings
 ```
 
+For global mise configuration, mount a ConfigMap to `/home/opencode/.config/mise/config.toml` if persistence is needed (otherwise the config is ephemeral).
+
 ### Mount Points
 
 | Path | Access | Description |
 |------|--------|-------------|
 | `/projects` | Read-Write | Project files and git repositories |
+| `~/.local` | Optional | OpenCode and mise data (tools, plugins, state) |
 
 ## Available Tools
 
@@ -93,6 +97,7 @@ Place OpenCode configuration in `$HOME/.opencode/`:
 | `opencode` | AI coding agent |
 | `bun` | JavaScript runtime and package manager |
 | `uv` | Fast Python package manager |
+| `mise` | Development tools manager (asdf alternative) |
 | `git` | Version control |
 | `fd` | Fast file finder |
 | `ripgrep` | Fast text search |
@@ -177,6 +182,8 @@ spec:
         volumeMounts:
         - name: projects-storage
           mountPath: /projects
+        - name: opencode-persistent
+          mountPath: /home/opencode/.local
         resources:
           requests:
             memory: "512Mi"
@@ -188,6 +195,11 @@ spec:
       - name: projects-storage
         persistentVolumeClaim:
           claimName: opencode-projects-pvc
+      - name: opencode-persistent
+        emptyDir: {}
+        # Alternatively, use a PVC for persistence:
+        # persistentVolumeClaim:
+        #   claimName: opencode-persistent-pvc
 ```
 
 ### Service

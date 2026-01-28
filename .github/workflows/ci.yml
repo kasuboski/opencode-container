@@ -9,6 +9,7 @@ on:
       - "container-AGENTS.md"
       - ".dockerignore"
       - ".github/workflows/ci.yml"
+      - "container-structure-test.yaml"
   pull_request:
     branches: [main]
 
@@ -31,6 +32,7 @@ jobs:
             echo "opencode=$(yq e '.opencode' versions.yml)"
             echo "bun=$(yq e '.bun' versions.yml)"
             echo "uv=$(yq e '.uv' versions.yml)"
+            echo "mise=$(yq e '.mise' versions.yml)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
@@ -50,21 +52,52 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=sha,format=long
+            type=sha,prefix=
             type=ref,event=branch
             type=raw,value=latest,enable={{ is_default_branch }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v5
+      - name: Install container-structure-test
+        run: |
+          curl -LO https://github.com/GoogleContainerTools/container-structure-test/releases/latest/download/container-structure-test-linux-amd64
+          chmod +x container-structure-test-linux-amd64
+          sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
+
+      - name: Build amd64 (load for testing)
+        id: build-amd64
+        uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.ref == 'refs/heads/main' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          load: true
+          tags: opencode:test-amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
           build-args: |
             OPENCODE_VERSION=${{ steps.versions.outputs.opencode }}
             BUN_VERSION=${{ steps.versions.outputs.bun }}
             UV_VERSION=${{ steps.versions.outputs.uv }}
+            MISE_VERSION=${{ steps.versions.outputs.mise }}
+
+      - name: Run structure tests on amd64
+        run: |
+          container-structure-test test \
+            --image opencode:test-amd64 \
+            --config container-structure-test.yaml
+
+      - name: Build multi-arch (push on main)
+        id: build-multiarch
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            OPENCODE_VERSION=${{ steps.versions.outputs.opencode }}
+            BUN_VERSION=${{ steps.versions.outputs.bun }}
+            UV_VERSION=${{ steps.versions.outputs.uv }}
+            MISE_VERSION=${{ steps.versions.outputs.mise }}

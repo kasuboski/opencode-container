@@ -6,33 +6,60 @@ This file provides guidelines for agentic coding agents operating in this reposi
 
 This repository builds a Docker container for OpenCode deployment on Kubernetes. It contains:
 - Dockerfile (multi-stage Alpine Linux build)
-- Makefile (build automation)
+- mise.toml (build automation with mise tasks)
 - versions.yml (version definitions)
 - GitHub Actions CI/CD workflow
+- container-structure-test.yaml (container structure test suite)
 
 ## Build Commands
 
 ```bash
 # Multi-arch build and push to registry
-make build REGISTRY=ghcr.io/user TAG=latest
+mise run build REGISTRY=ghcr.io/user TAG=latest
 
 # Single-arch builds for local testing
-make build-amd64 TAG=test
-make build-arm64 TAG=test
+TAG=test mise run build-amd64
+TAG=test mise run build-arm64
 
 # Push existing image to registry
-make push
+mise run push
 
-# Show available targets and current versions
-make help
+# Run container structure tests (amd64)
+TAG=test mise run test-structure
+
+# Run container structure tests (arm64)
+TAG=test mise run test-structure-arm64
+
+# Build and test in one command
+TAG=test mise run test-and-build
+
+# List available tasks
+mise tasks ls
 ```
 
-Version variables are read from `versions.yml` via yq:
+### Container Structure Testing
+
+This project uses Google's container-structure-test to validate Docker image structure:
+
+**Installation**:
 ```bash
-OPENCODE_VERSION=$(shell yq e '.opencode' versions.yml)
-BUN_VERSION=$(shell yq e '.bun' versions.yml)
-UV_VERSION=$(shell yq e '.uv' versions.yml)
+# macOS (arm64)
+curl -LO https://github.com/GoogleContainerTools/container-structure-test/releases/latest/download/container-structure-test-darwin-arm64
+chmod +x container-structure-test-darwin-arm64
+sudo mv container-structure-test-darwin-arm64 /usr/local/bin/container-structure-test
+
+# Or without sudo:
+mkdir -p $HOME/bin && export PATH=$PATH:$HOME/bin
+mv container-structure-test-darwin-arm64 $HOME/bin/container-structure-test
 ```
+
+**Note**: If using lima-docker or non-standard Docker socket, set `DOCKER_HOST`:
+```bash
+export DOCKER_HOST=unix:///Users/josh/.lima/docker/sock/docker.sock
+TAG=test mise run test-structure-arm64
+```
+
+Version variables are automatically read from `versions.yml` by mise tasks via template functions.
 
 ## CI/CD
 
@@ -41,6 +68,7 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 - Triggers on all PRs to main (builds but does not push)
 - Builds for linux/amd64 and linux/arm64 platforms
 - Uses GitHub Actions cache for faster builds
+- Runs container structure tests on amd64 images
 
 ## Code Style Guidelines
 
@@ -54,13 +82,13 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 - Use `set -e` for error handling in RUN commands
 - Alphabetize packages in apk add for readability
 
-### Makefile
-- Use `:=` for variables read from shell commands
-- Define `.PHONY` targets explicitly
-- Use tabs for indentation (not spaces)
-- Prefix internal variables with `?=` for override capability
-- Include help target with variable documentation
-- Use `$(shell ...)` for command substitution
+### mise.toml
+- Use `[vars]` section for variable definitions
+- Use template functions (`{{ exec(...) }}`) for command substitution
+- Use `{{ vars.variable_name }}` for variable interpolation
+- Define tasks in `[tasks.task-name]` sections
+- Use `description` field for task documentation
+- Use `run` field for commands (arrays or multi-line strings)
 
 ### YAML Files
 - Use 2-space indentation
@@ -91,7 +119,7 @@ To update versions:
 ## Error Handling
 
 - Dockerfile: Use `set -e` at the start of RUN commands
-- Makefile: Commands fail on non-zero exit by default
+- mise: Tasks run with `set -e` by default
 - Shell: Use `&&` to chain commands that should fail together
 - Always verify download URLs before use
 
@@ -114,16 +142,40 @@ To update versions:
 
 ```
 .
-├── .dockerignore           # Exclusions for Docker build context
+├── .dockerignore               # Exclusions for Docker build context
 ├── .github/
 │   └── workflows/
-│       └── ci.yml          # GitHub Actions CI/CD pipeline
-├── container-AGENTS.md     # Container environment docs for AI assistants
-├── Dockerfile              # Multi-stage Alpine Linux build
-├── Makefile                # Build automation targets
-├── README.md               # User-facing documentation
-└── versions.yml            # Single source of truth for versions
+│       └── ci.yml              # GitHub Actions CI/CD pipeline
+├── container-AGENTS.md         # Container environment docs for AI assistants
+├── container-structure-test.yaml  # Container structure test suite
+├── Dockerfile                  # Multi-stage Alpine Linux build
+├── mise.toml                   # Build automation tasks
+├── README.md                   # User-facing documentation
+└── versions.yml                # Single source of truth for versions
 ```
+
+## Container Structure Testing
+
+The `container-structure-test.yaml` file validates critical aspects of the Docker image:
+
+**What is tested**:
+- File paths and permissions (binaries, directories, config files)
+- User and group ownership (non-root user: opencode UID 1000)
+- Environment variables (HOME, USER, PATH)
+- Container metadata (workdir, exposed ports, entrypoint)
+- Command functionality (mise, git, fd, ripgrep)
+
+**Best practices**:
+- Always run structure tests after building images
+- Tests run in CI/CD pipeline on every PR and push to main
+- Tests validate security best practices (non-root user, proper permissions)
+- Structure tests complement functional tests but don't replace them
+
+**Troubleshooting**:
+- If tests fail with Docker socket errors, check DOCKER_HOST environment variable
+- On macOS with lima-docker: `export DOCKER_HOST=unix:///Users/josh/.lima/docker/sock/docker.sock`
+- Build must complete successfully before running structure tests
+- Use `--save` flag with container-structure-test to keep test containers for debugging
 
 ## Working with Versions
 
@@ -161,7 +213,7 @@ When updating component versions:
 ### Adding a new dependency to the container
 
 1. Add package to Dockerfile's apk add command (alphabetically sorted)
-2. Test with `make build-amd64 TAG=test`
+2. Test with `TAG=test mise run build-amd64`
 3. Update versions.yml if version changes
 4. Commit and push
 
@@ -189,6 +241,30 @@ When updating component versions:
 - Ensure buildx builder is created: `docker buildx create --use`
 - Use `--platform linux/amd64,linux/arm64` explicitly
 
-### Version parsing errors
-- Verify yq is installed: `which yq`
-- Check versions.yml syntax: `yq e '.' versions.yml`
+### Task execution issues
+- Ensure mise is installed: `mise --version`
+- List available tasks: `mise tasks ls`
+- Check task details: `mise tasks info <task-name>`
+
+<!-- opensrc:start -->
+
+## Source Code Reference
+
+Source code for dependencies is available in `opensrc/` for deeper understanding of implementation details.
+
+See `opensrc/sources.json` for the list of available packages and their versions.
+
+Use this source code when you need to understand how a package works internally, not just its types/interface.
+
+### Fetching Additional Source Code
+
+To fetch source code for a package or repository you need to understand, run:
+
+```bash
+bunx opensrc <package>           # npm package (e.g., npx opensrc zod)
+bunx opensrc pypi:<package>      # Python package (e.g., npx opensrc pypi:requests)
+bunx opensrc crates:<package>    # Rust crate (e.g., npx opensrc crates:serde)
+bunx opensrc <owner>/<repo>      # GitHub repo (e.g., npx opensrc vercel/ai)
+```
+
+<!-- opensrc:end -->

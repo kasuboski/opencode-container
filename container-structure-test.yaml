@@ -1,0 +1,170 @@
+schemaVersion: "2.0.0"
+
+fileExistenceTests:
+  - name: "opencode binary exists"
+    path: "/usr/local/bin/opencode"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "mise binary exists"
+    path: "/usr/local/bin/mise"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "bun binary in mise shims"
+    path: "/home/opencode/.local/share/mise/shims/bun"
+    shouldExist: false
+
+  - name: "bash binary exists"
+    path: "/bin/bash"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "curl binary exists"
+    path: "/usr/bin/curl"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "git binary exists"
+    path: "/usr/bin/git"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "fd binary exists"
+    path: "/usr/bin/fd"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "ripgrep binary exists"
+    path: "/usr/bin/rg"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "tar binary exists"
+    path: "/bin/tar"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "unzip binary exists"
+    path: "/usr/bin/unzip"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "xz binary exists"
+    path: "/usr/bin/xz"
+    shouldExist: true
+    isExecutableBy: "any"
+
+  - name: "home directory exists"
+    path: "/home/opencode"
+    shouldExist: true
+    uid: 1000
+    gid: 1000
+
+  - name: "projects directory exists"
+    path: "/projects"
+    shouldExist: true
+    permissions: "drwxr-xr-x"
+    uid: 1000
+    gid: 1000
+
+  - name: "mise data directory exists"
+    path: "/home/opencode/.local/share/mise"
+    shouldExist: true
+    uid: 1000
+    gid: 1000
+
+  - name: "mise state directory exists"
+    path: "/home/opencode/.local/state/mise"
+    shouldExist: true
+    uid: 1000
+    gid: 1000
+
+  - name: "mise config directory exists"
+    path: "/home/opencode/.config/mise"
+    shouldExist: true
+    uid: 1000
+    gid: 1000
+
+  - name: "mise cache directory exists"
+    path: "/home/opencode/.cache/mise"
+    shouldExist: true
+    uid: 1000
+    gid: 1000
+
+  - name: "container-AGENTS.md exists"
+    path: "/home/opencode/.config/opencode/AGENTS.md"
+    shouldExist: true
+    permissions: "-rw-r--r--"
+    uid: 1000
+    gid: 1000
+
+fileContentTests:
+  - name: "container-AGENTS.md contains expected content"
+    path: "/home/opencode/.config/opencode/AGENTS.md"
+    expectedContents: [".*OpenCode.*Container.*"]
+
+commandTests:
+  - name: "running as non-root user"
+    command: "id"
+    args: ["-un"]
+    expectedOutput: ["opencode\n"]
+
+  - name: "user has correct UID"
+    command: "id"
+    args: ["-u"]
+    expectedOutput: ["1000\n"]
+
+  - name: "home directory is correct"
+    command: "echo"
+    args: ["$HOME"]
+    expectedOutput: ["/home/opencode\n"]
+
+  - name: "working directory is /projects"
+    command: "pwd"
+    expectedOutput: ["/projects\n"]
+
+  - name: "mise is executable"
+    command: "mise"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "git is functional"
+    command: "git"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "fd is functional"
+    command: "fd"
+    args: ["--version"]
+    exitCode: 0
+
+  - name: "ripgrep is functional"
+    command: "rg"
+    args: ["--version"]
+    exitCode: 0
+
+metadataTest:
+  envVars:
+    - key: "HOME"
+      value: "/home/opencode"
+    - key: "USER"
+      value: "opencode"
+    - key: "PATH"
+      value: ".*home/opencode/.*"
+      isRegex: true
+
+  user: "opencode"
+
+  workdir: "/projects"
+
+  exposedPorts:
+    - "4096"
+
+  entrypoint:
+    - "opencode"
+    - "serve"
+    - "--hostname"
+    - "0.0.0.0"
+    - "--port"
+    - "4096"
