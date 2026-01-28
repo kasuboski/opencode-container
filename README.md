@@ -6,7 +6,7 @@ A containerized OpenCode deployment for Kubernetes with pre-installed tools (bun
 
 This repository contains:
 - **Dockerfile**: Multi-stage Alpine Linux build for opencode, bun, uv, and utilities
-- **Makefile**: Build automation that reads versions from `versions.yml`
+- **mise.toml**: Build automation that reads versions from `versions.yml`
 - **GitHub Actions**: CI/CD pipeline for multi-architecture builds
 - **container-AGENTS.md**: Detailed container environment documentation for AI assistants
 
@@ -15,21 +15,21 @@ This repository contains:
 ### Prerequisites
 
 - Docker with buildx support
-- yq (for reading versions.yml)
+- mise (for running build tasks)
 - Access to GitHub Container Registry (for published images)
 
 ### Build the Image
 
 ```bash
 # Build multi-arch image and push to registry
-make build REGISTRY=ghcr.io/youruser TAG=latest
+mise run build REGISTRY=ghcr.io/yourorg/yourrepo TAG=latest
 
 # Build single arch for local testing
-make build-amd64 TAG=test
-make build-arm64 TAG=test
+TAG=test mise run build-amd64
+TAG=test mise run build-arm64
 
-# View available targets and current versions
-make help
+# List available tasks
+mise tasks ls
 ```
 
 ### Run Locally
@@ -48,7 +48,7 @@ docker run -d \
 
 ## Version Management
 
-Versions are defined in `versions.yml`:
+Versions are defined in `versions.yml` and are automatically read by mise tasks:
 
 ```yaml
 opencode: 1.1.26

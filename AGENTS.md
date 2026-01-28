@@ -6,7 +6,7 @@ This file provides guidelines for agentic coding agents operating in this reposi
 
 This repository builds a Docker container for OpenCode deployment on Kubernetes. It contains:
 - Dockerfile (multi-stage Alpine Linux build)
-- Makefile (build automation)
+- mise.toml (build automation with mise tasks)
 - versions.yml (version definitions)
 - GitHub Actions CI/CD workflow
 
@@ -14,25 +14,20 @@ This repository builds a Docker container for OpenCode deployment on Kubernetes.
 
 ```bash
 # Multi-arch build and push to registry
-make build REGISTRY=ghcr.io/user TAG=latest
+mise run build REGISTRY=ghcr.io/user TAG=latest
 
 # Single-arch builds for local testing
-make build-amd64 TAG=test
-make build-arm64 TAG=test
+TAG=test mise run build-amd64
+TAG=test mise run build-arm64
 
 # Push existing image to registry
-make push
+mise run push
 
-# Show available targets and current versions
-make help
+# List available tasks
+mise tasks ls
 ```
 
-Version variables are read from `versions.yml` via yq:
-```bash
-OPENCODE_VERSION=$(shell yq e '.opencode' versions.yml)
-BUN_VERSION=$(shell yq e '.bun' versions.yml)
-UV_VERSION=$(shell yq e '.uv' versions.yml)
-```
+Version variables are automatically read from `versions.yml` by mise tasks via template functions.
 
 ## CI/CD
 
@@ -54,13 +49,13 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 - Use `set -e` for error handling in RUN commands
 - Alphabetize packages in apk add for readability
 
-### Makefile
-- Use `:=` for variables read from shell commands
-- Define `.PHONY` targets explicitly
-- Use tabs for indentation (not spaces)
-- Prefix internal variables with `?=` for override capability
-- Include help target with variable documentation
-- Use `$(shell ...)` for command substitution
+### mise.toml
+- Use `[vars]` section for variable definitions
+- Use template functions (`{{ exec(...) }}`) for command substitution
+- Use `{{ vars.variable_name }}` for variable interpolation
+- Define tasks in `[tasks.task-name]` sections
+- Use `description` field for task documentation
+- Use `run` field for commands (arrays or multi-line strings)
 
 ### YAML Files
 - Use 2-space indentation
@@ -91,7 +86,7 @@ To update versions:
 ## Error Handling
 
 - Dockerfile: Use `set -e` at the start of RUN commands
-- Makefile: Commands fail on non-zero exit by default
+- mise: Tasks run with `set -e` by default
 - Shell: Use `&&` to chain commands that should fail together
 - Always verify download URLs before use
 
@@ -120,7 +115,7 @@ To update versions:
 │       └── ci.yml          # GitHub Actions CI/CD pipeline
 ├── container-AGENTS.md     # Container environment docs for AI assistants
 ├── Dockerfile              # Multi-stage Alpine Linux build
-├── Makefile                # Build automation targets
+├── mise.toml              # Build automation tasks
 ├── README.md               # User-facing documentation
 └── versions.yml            # Single source of truth for versions
 ```
@@ -161,7 +156,7 @@ When updating component versions:
 ### Adding a new dependency to the container
 
 1. Add package to Dockerfile's apk add command (alphabetically sorted)
-2. Test with `make build-amd64 TAG=test`
+2. Test with `TAG=test mise run build-amd64`
 3. Update versions.yml if version changes
 4. Commit and push
 
@@ -189,9 +184,10 @@ When updating component versions:
 - Ensure buildx builder is created: `docker buildx create --use`
 - Use `--platform linux/amd64,linux/arm64` explicitly
 
-### Version parsing errors
-- Verify yq is installed: `which yq`
-- Check versions.yml syntax: `yq e '.' versions.yml`
+### Task execution issues
+- Ensure mise is installed: `mise --version`
+- List available tasks: `mise tasks ls`
+- Check task details: `mise tasks info <task-name>`
 
 <!-- opensrc:start -->
 
