@@ -55,3 +55,23 @@ docker build \
 [tasks.push]
 description = "Push image to registry"
 run = "docker push {{ vars.registry }}/{{ vars.image_name }}:{{ vars.tag }}"
+
+[tasks."test-structure"]
+description = "Run container structure tests against local amd64 image"
+run = '''
+container-structure-test test \
+  --image {{ vars.image_name }}:{{ vars.tag }}-amd64 \
+  --config container-structure-test.yaml
+'''
+
+[tasks."test-structure-arm64"]
+description = "Run container structure tests against local arm64 image"
+run = '''
+container-structure-test test \
+  --image {{ vars.image_name }}:{{ vars.tag }}-arm64 \
+  --config container-structure-test.yaml
+'''
+
+[tasks."test-and-build"]
+description = "Build amd64 image and run structure tests"
+depends = ["build-amd64", "test-structure"]

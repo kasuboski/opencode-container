@@ -9,6 +9,7 @@ on:
       - "container-AGENTS.md"
       - ".dockerignore"
       - ".github/workflows/ci.yml"
+      - "container-structure-test.yaml"
   pull_request:
     branches: [main]
 
@@ -51,7 +52,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=sha,format=long
+            type=sha,prefix=
             type=ref,event=branch
             type=raw,value=latest,enable={{ is_default_branch }}
 
@@ -70,3 +71,16 @@ jobs:
             BUN_VERSION=${{ steps.versions.outputs.bun }}
             UV_VERSION=${{ steps.versions.outputs.uv }}
             MISE_VERSION=${{ steps.versions.outputs.mise }}
+
+      - name: Install container-structure-test
+        run: |
+          curl -LO https://github.com/GoogleContainerTools/container-structure-test/releases/latest/download/container-structure-test-linux-amd64
+          chmod +x container-structure-test-linux-amd64
+          sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
+
+      - name: Run structure tests
+        run: |
+          container-structure-test test \
+            --image ghcr.io/${{ github.repository }}:${{ github.sha }} \
+            --config container-structure-test.yaml \
+            --platform linux/amd64

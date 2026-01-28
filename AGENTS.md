@@ -9,6 +9,7 @@ This repository builds a Docker container for OpenCode deployment on Kubernetes.
 - mise.toml (build automation with mise tasks)
 - versions.yml (version definitions)
 - GitHub Actions CI/CD workflow
+- container-structure-test.yaml (container structure test suite)
 
 ## Build Commands
 
@@ -23,8 +24,39 @@ TAG=test mise run build-arm64
 # Push existing image to registry
 mise run push
 
+# Run container structure tests (amd64)
+TAG=test mise run test-structure
+
+# Run container structure tests (arm64)
+TAG=test mise run test-structure-arm64
+
+# Build and test in one command
+TAG=test mise run test-and-build
+
 # List available tasks
 mise tasks ls
+```
+
+### Container Structure Testing
+
+This project uses Google's container-structure-test to validate Docker image structure:
+
+**Installation**:
+```bash
+# macOS (arm64)
+curl -LO https://github.com/GoogleContainerTools/container-structure-test/releases/latest/download/container-structure-test-darwin-arm64
+chmod +x container-structure-test-darwin-arm64
+sudo mv container-structure-test-darwin-arm64 /usr/local/bin/container-structure-test
+
+# Or without sudo:
+mkdir -p $HOME/bin && export PATH=$PATH:$HOME/bin
+mv container-structure-test-darwin-arm64 $HOME/bin/container-structure-test
+```
+
+**Note**: If using lima-docker or non-standard Docker socket, set `DOCKER_HOST`:
+```bash
+export DOCKER_HOST=unix:///Users/josh/.lima/docker/sock/docker.sock
+TAG=test mise run test-structure-arm64
 ```
 
 Version variables are automatically read from `versions.yml` by mise tasks via template functions.
@@ -36,6 +68,7 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 - Triggers on all PRs to main (builds but does not push)
 - Builds for linux/amd64 and linux/arm64 platforms
 - Uses GitHub Actions cache for faster builds
+- Runs container structure tests on amd64 images
 
 ## Code Style Guidelines
 
@@ -109,16 +142,40 @@ To update versions:
 
 ```
 .
-├── .dockerignore           # Exclusions for Docker build context
+├── .dockerignore               # Exclusions for Docker build context
 ├── .github/
 │   └── workflows/
-│       └── ci.yml          # GitHub Actions CI/CD pipeline
-├── container-AGENTS.md     # Container environment docs for AI assistants
-├── Dockerfile              # Multi-stage Alpine Linux build
-├── mise.toml              # Build automation tasks
-├── README.md               # User-facing documentation
-└── versions.yml            # Single source of truth for versions
+│       └── ci.yml              # GitHub Actions CI/CD pipeline
+├── container-AGENTS.md         # Container environment docs for AI assistants
+├── container-structure-test.yaml  # Container structure test suite
+├── Dockerfile                  # Multi-stage Alpine Linux build
+├── mise.toml                   # Build automation tasks
+├── README.md                   # User-facing documentation
+└── versions.yml                # Single source of truth for versions
 ```
+
+## Container Structure Testing
+
+The `container-structure-test.yaml` file validates critical aspects of the Docker image:
+
+**What is tested**:
+- File paths and permissions (binaries, directories, config files)
+- User and group ownership (non-root user: opencode UID 1000)
+- Environment variables (HOME, USER, PATH)
+- Container metadata (workdir, exposed ports, entrypoint)
+- Command functionality (mise, git, fd, ripgrep)
+
+**Best practices**:
+- Always run structure tests after building images
+- Tests run in CI/CD pipeline on every PR and push to main
+- Tests validate security best practices (non-root user, proper permissions)
+- Structure tests complement functional tests but don't replace them
+
+**Troubleshooting**:
+- If tests fail with Docker socket errors, check DOCKER_HOST environment variable
+- On macOS with lima-docker: `export DOCKER_HOST=unix:///Users/josh/.lima/docker/sock/docker.sock`
+- Build must complete successfully before running structure tests
+- Use `--save` flag with container-structure-test to keep test containers for debugging
 
 ## Working with Versions
 
