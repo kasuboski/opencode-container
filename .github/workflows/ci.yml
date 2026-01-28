@@ -56,31 +56,32 @@ jobs:
             type=ref,event=branch
             type=raw,value=latest,enable={{ is_default_branch }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: ${{ github.ref == 'refs/heads/main' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            OPENCODE_VERSION=${{ steps.versions.outputs.opencode }}
-            BUN_VERSION=${{ steps.versions.outputs.bun }}
-            UV_VERSION=${{ steps.versions.outputs.uv }}
-            MISE_VERSION=${{ steps.versions.outputs.mise }}
-
       - name: Install container-structure-test
         run: |
           curl -LO https://github.com/GoogleContainerTools/container-structure-test/releases/latest/download/container-structure-test-linux-amd64
           chmod +x container-structure-test-linux-amd64
           sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
 
-      - name: Run structure tests
+      - name: Build multi-arch (load amd64 for testing, push both on main)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          load: true
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: opencode:test-amd64,${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            OPENCODE_VERSION=${{ steps.versions.outputs.opencode }}
+            BUN_VERSION=${{ steps.versions.outputs.bun }}
+            UV_VERSION=${{ steps.versions.outputs.uv }}
+            MISE_VERSION=${{ steps.versions.outputs.mise }}
+
+      - name: Run structure tests on amd64
         run: |
           container-structure-test test \
-            --image ghcr.io/${{ github.repository }}:${{ github.sha }} \
-            --config container-structure-test.yaml \
-            --platform linux/amd64
+            --image opencode:test-amd64 \
+            --config container-structure-test.yaml
