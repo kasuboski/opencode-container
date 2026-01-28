@@ -54,6 +54,7 @@ Versions are defined in `versions.yml`:
 opencode: 1.1.26
 bun: 1.1.35
 uv: 0.9.21
+mise: v2026.1.8
 ```
 
 To update versions:
@@ -80,11 +81,14 @@ Place OpenCode configuration in `$HOME/.opencode/`:
 └── .opencode/          # Additional settings
 ```
 
+For global mise configuration, mount a ConfigMap to `/home/opencode/.config/mise/config.toml` if persistence is needed (otherwise the config is ephemeral).
+
 ### Mount Points
 
 | Path | Access | Description |
 |------|--------|-------------|
 | `/projects` | Read-Write | Project files and git repositories |
+| `~/.local` | Optional | OpenCode and mise data (tools, plugins, state) |
 
 ## Available Tools
 
@@ -93,6 +97,7 @@ Place OpenCode configuration in `$HOME/.opencode/`:
 | `opencode` | AI coding agent |
 | `bun` | JavaScript runtime and package manager |
 | `uv` | Fast Python package manager |
+| `mise` | Development tools manager (asdf alternative) |
 | `git` | Version control |
 | `fd` | Fast file finder |
 | `ripgrep` | Fast text search |
@@ -177,6 +182,8 @@ spec:
         volumeMounts:
         - name: projects-storage
           mountPath: /projects
+        - name: opencode-persistent
+          mountPath: /home/opencode/.local
         resources:
           requests:
             memory: "512Mi"
@@ -188,6 +195,11 @@ spec:
       - name: projects-storage
         persistentVolumeClaim:
           claimName: opencode-projects-pvc
+      - name: opencode-persistent
+        emptyDir: {}
+        # Alternatively, use a PVC for persistence:
+        # persistentVolumeClaim:
+        #   claimName: opencode-persistent-pvc
 ```
 
 ### Service

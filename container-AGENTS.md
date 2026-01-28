@@ -36,6 +36,7 @@ git clone https://github.com/example/project.git
 | `opencode` | AI coding agent |
 | `bun` | JavaScript runtime and package manager |
 | `uv` | Fast Python package manager |
+| `mise` | Development tools manager (asdf alternative) |
 | `git` | Version control |
 | `fd` | Fast file finder |
 | `ripgrep` | Fast text search |
@@ -75,6 +76,56 @@ Example structure:
 ├── instructions.md     # Custom instructions
 └── .opencode/          # Additional settings
 ```
+
+## Mise Configuration
+
+Mise is installed with persistent data storage in `~/.local`. Tool installations, plugins, and state are persisted when a volume is mounted over `~/.local`.
+
+### Environment Variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MISE_INSTALL_PATH` | `/usr/local/bin/mise` | Binary installation location |
+| `MISE_DATA_DIR` | `/home/opencode/.local/share/mise` | Tool installations, plugins, shims |
+| `MISE_CONFIG_DIR` | `/home/opencode/.config/mise` | Global configuration |
+| `MISE_CACHE_DIR` | `/home/opencode/.cache/mise` | Download cache |
+| `MISE_STATE_DIR` | `/home/opencode/.local/state/mise` | State tracking data |
+
+### Data Persistence
+
+- **Persisted via volume mount**: Tools, plugins, shims, state (`~/.local/share/mise/*`, `~/.local/state/mise/*`)
+- **Ephemeral**: Global config (`~/.config/mise/config.toml`) - mount ConfigMap if persistence needed
+
+### Common Commands
+
+```bash
+# Install a tool
+mise install node@20
+
+# Use a tool version for current shell
+mise use node@20
+
+# List available versions
+mise ls-remote node
+
+# List installed tools
+mise ls
+
+# Update mise (if needed)
+mise self-update
+```
+
+### Project-Level Configuration
+
+Add `.mise.toml` or `.mise/config.toml` to project directories (persisted via `/projects` mount):
+
+```toml
+[tools]
+node = "20.11.0"
+python = "3.12"
+```
+
+See https://mise.jdx.dev/ for full documentation.
 
 ## Security
 

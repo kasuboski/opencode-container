@@ -31,6 +31,7 @@ jobs:
             echo "opencode=$(yq e '.opencode' versions.yml)"
             echo "bun=$(yq e '.bun' versions.yml)"
             echo "uv=$(yq e '.uv' versions.yml)"
+            echo "mise=$(yq e '.mise' versions.yml)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
@@ -68,3 +69,4 @@ jobs:
             OPENCODE_VERSION=${{ steps.versions.outputs.opencode }}
             BUN_VERSION=${{ steps.versions.outputs.bun }}
             UV_VERSION=${{ steps.versions.outputs.uv }}
+            MISE_VERSION=${{ steps.versions.outputs.mise }}

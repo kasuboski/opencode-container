@@ -4,10 +4,17 @@ FROM alpine:${ALPINE_VERSION} AS base
 ARG OPENCODE_VERSION=1.1.26
 ARG BUN_VERSION=latest
 ARG UV_VERSION=latest
+ARG MISE_VERSION=v2026.1.8
 
 ENV OPENCODE_VERSION=${OPENCODE_VERSION}
 ENV BUN_VERSION=${BUN_VERSION}
 ENV UV_VERSION=${UV_VERSION}
+ENV MISE_VERSION=${MISE_VERSION}
+ENV MISE_INSTALL_PATH=/usr/local/bin/mise
+ENV MISE_DATA_DIR=/home/opencode/.local/share/mise
+ENV MISE_CONFIG_DIR=/home/opencode/.config/mise
+ENV MISE_CACHE_DIR=/home/opencode/.cache/mise
+ENV MISE_STATE_DIR=/home/opencode/.local/state/mise
 
 RUN apk add --no-cache \
     bash \
@@ -31,6 +38,8 @@ RUN set -e && \
     UV_INSTALL_SCRIPT_URL="https://astral.sh/uv/${UV_VERSION}/install.sh"; \
     fi && \
     curl -LsSf "${UV_INSTALL_SCRIPT_URL}" | sh
+
+RUN curl https://mise.run | MISE_VERSION=${MISE_VERSION} sh
 
 FROM base AS build-amd64
 ARG OPENCODE_VERSION
@@ -59,11 +68,18 @@ RUN addgroup -g 1000 opencode && \
 
 ENV HOME=/home/opencode
 ENV USER=opencode
-ENV PATH=/home/opencode/.bun/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV PATH=/home/opencode/.local/share/mise/shims:/home/opencode/.bun/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN chown -R opencode:opencode /home/opencode && \
     mkdir -p /projects && \
-    chown -R opencode:opencode /projects
+    chown -R opencode:opencode /projects && \
+    mkdir -p /home/opencode/.local/share/mise \
+             /home/opencode/.local/state/mise \
+             /home/opencode/.config/mise \
+             /home/opencode/.cache/mise && \
+    chown -R opencode:opencode /home/opencode/.local \
+                             /home/opencode/.config/mise \
+                             /home/opencode/.cache/mise
 
 COPY --chown=opencode:opencode container-AGENTS.md /home/opencode/.config/opencode/AGENTS.md
 

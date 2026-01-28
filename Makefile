@@ -5,6 +5,7 @@ TAG ?= latest
 OPENCODE_VERSION := $(shell yq e '.opencode' versions.yml)
 BUN_VERSION := $(shell yq e '.bun' versions.yml)
 UV_VERSION := $(shell yq e '.uv' versions.yml)
+MISE_VERSION := $(shell yq e '.mise' versions.yml)
 
 .PHONY: build
 build:
@@ -13,6 +14,7 @@ build:
 		--build-arg OPENCODE_VERSION=$(OPENCODE_VERSION) \
 		--build-arg BUN_VERSION=$(BUN_VERSION) \
 		--build-arg UV_VERSION=$(UV_VERSION) \
+		--build-arg MISE_VERSION=$(MISE_VERSION) \
 		--tag $(REGISTRY)/$(IMAGE_NAME):$(TAG) \
 		--push .
 
@@ -23,6 +25,7 @@ build-amd64:
 		--build-arg OPENCODE_VERSION=$(OPENCODE_VERSION) \
 		--build-arg BUN_VERSION=$(BUN_VERSION) \
 		--build-arg UV_VERSION=$(UV_VERSION) \
+		--build-arg MISE_VERSION=$(MISE_VERSION) \
 		--tag $(IMAGE_NAME):$(TAG)-amd64 \
 		.
 
@@ -33,6 +36,7 @@ build-arm64:
 		--build-arg OPENCODE_VERSION=$(OPENCODE_VERSION) \
 		--build-arg BUN_VERSION=$(BUN_VERSION) \
 		--build-arg UV_VERSION=$(UV_VERSION) \
+		--build-arg MISE_VERSION=$(MISE_VERSION) \
 		--tag $(IMAGE_NAME):$(TAG)-arm64 \
 		.
 
@@ -58,3 +62,4 @@ help:
 	@echo "  OPENCODE_VERSION - $(OPENCODE_VERSION)"
 	@echo "  BUN_VERSION - $(BUN_VERSION)"
 	@echo "  UV_VERSION - $(UV_VERSION)"
+	@echo "  MISE_VERSION - $(MISE_VERSION)"
