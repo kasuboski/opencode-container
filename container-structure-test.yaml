@@ -92,6 +92,12 @@ fileExistenceTests:
     uid: 1000
     gid: 1000
 
+  - name: "opencode cache directory exists"
+    path: "/home/opencode/.cache/opencode"
+    shouldExist: true
+    uid: 1000
+    gid: 1000
+
   - name: "container-AGENTS.md exists"
     path: "/home/opencode/.config/opencode/AGENTS.md"
     shouldExist: true

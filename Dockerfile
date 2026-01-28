@@ -79,10 +79,13 @@ RUN chown -R opencode:opencode /home/opencode && \
     mkdir -p /home/opencode/.local/share/mise \
              /home/opencode/.local/state/mise \
              /home/opencode/.config/mise \
-             /home/opencode/.cache/mise && \
+             /home/opencode/.cache/mise \
+             /home/opencode/.cache/opencode && \
     chown -R opencode:opencode /home/opencode/.local \
-                             /home/opencode/.config/mise \
-                             /home/opencode/.cache/mise
+                            /home/opencode/.config/mise \
+                            /home/opencode/.cache/mise \
+                            /home/opencode/.cache/opencode
+
 
 COPY --chown=opencode:opencode container-AGENTS.md /home/opencode/.config/opencode/AGENTS.md
 
